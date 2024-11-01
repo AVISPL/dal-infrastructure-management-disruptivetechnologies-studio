@@ -10,8 +10,8 @@
 	import java.net.SocketTimeoutException;
 	import java.net.URLEncoder;
 	import java.net.UnknownHostException;
-	import java.text.SimpleDateFormat;
 	import java.time.OffsetDateTime;
+	import java.time.ZoneOffset;
 	import java.time.format.DateTimeFormatter;
 	import java.util.ArrayList;
 	import java.util.Collections;
@@ -23,7 +23,6 @@
 	import java.util.Objects;
 	import java.util.Properties;
 	import java.util.Set;
-	import java.util.TimeZone;
 	import java.util.concurrent.ExecutorService;
 	import java.util.concurrent.Executors;
 	import java.util.concurrent.TimeUnit;
@@ -453,6 +452,17 @@
 					logger.error(String.format("Error when control property %s", p.getProperty()), e);
 				}
 			}
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public List<AggregatedDevice> retrieveMultipleStatistics(List<String> list) throws Exception {
+			return retrieveMultipleStatistics()
+					.stream()
+					.filter(aggregatedDevice -> list.contains(aggregatedDevice.getDeviceId()))
+					.collect(Collectors.toList());
 		}
 
 		/**
@@ -959,17 +969,6 @@
 		}
 
 		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public List<AggregatedDevice> retrieveMultipleStatistics(List<String> list) throws Exception {
-			return retrieveMultipleStatistics()
-					.stream()
-					.filter(aggregatedDevice -> list.contains(aggregatedDevice.getDeviceId()))
-					.collect(Collectors.toList());
-		}
-
-		/**
 		 * capitalize the first character of the string
 		 *
 		 * @param input input string
@@ -992,14 +991,13 @@
 				return inputDateTime;
 			}
 			try {
-				SimpleDateFormat inputFormat = new SimpleDateFormat(DisruptiveTechnologiesConstant.DEFAULT_FORMAT_DATETIME_WITH_MILLIS);
-				inputFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+				DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern(DisruptiveTechnologiesConstant.DEFAULT_FORMAT_DATETIME_WITH_MILLIS)
+						.withZone(ZoneOffset.UTC);
+				DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern(DisruptiveTechnologiesConstant.TARGET_FORMAT_DATETIME)
+						.withZone(ZoneOffset.UTC);
 
-				SimpleDateFormat outputFormat = new SimpleDateFormat(DisruptiveTechnologiesConstant.TARGET_FORMAT_DATETIME);
-				outputFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-
-				Date date = inputFormat.parse(inputDateTime);
-				return outputFormat.format(date);
+				OffsetDateTime date = OffsetDateTime.parse(inputDateTime, inputFormatter);
+				return date.format(outputFormatter);
 			} catch (Exception e) {
 				logger.warn("Can't convert the date time value");
 				return DisruptiveTechnologiesConstant.NONE;

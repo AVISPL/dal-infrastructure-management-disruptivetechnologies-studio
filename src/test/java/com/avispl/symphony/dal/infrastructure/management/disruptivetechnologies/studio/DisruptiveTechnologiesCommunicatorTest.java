@@ -32,8 +32,8 @@ public class DisruptiveTechnologiesCommunicatorTest {
 	void setUp() throws Exception {
 		disruptiveTechnologiesCommunicator = new DisruptiveTechnologiesCommunicator();
 		disruptiveTechnologiesCommunicator.setHost("api.disruptive-technologies.com");
-		disruptiveTechnologiesCommunicator.setLogin("crbc8026n54000drmb00@crbc2sna9j4j6igdjkvg.serviceaccount.d21s.com crbc89vs2lg0009sta1g");
-		disruptiveTechnologiesCommunicator.setPassword("9524fc9a7fd04c128a02b830def287d7");
+		disruptiveTechnologiesCommunicator.setLogin("");
+		disruptiveTechnologiesCommunicator.setPassword("");
 		disruptiveTechnologiesCommunicator.setPort(443);
 		disruptiveTechnologiesCommunicator.init();
 		disruptiveTechnologiesCommunicator.connect();

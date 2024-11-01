@@ -8,7 +8,7 @@ package com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies
  * Enum AggregatedInformation represents various pieces of aggregated information about a device.
  *
  * @author Harry / Symphony Dev Team<br>
- * Created on 22/10/2024
+ * Created on 23/10/2024
  * @since 1.0.0
  */
 public enum AggregatedInformation {
@@ -73,11 +73,8 @@ public enum AggregatedInformation {
 	/** WaterDetector **/
 	WATER_PRESENT_STATE("WaterDetectionState", "SensorData#"),
 	WATER_PRESENT_UPDATE_TIME("WaterDetectionUpdate", "SensorData#"),
-
-
-
-
 	;
+
 	private final String name;
 	private final String group;
 

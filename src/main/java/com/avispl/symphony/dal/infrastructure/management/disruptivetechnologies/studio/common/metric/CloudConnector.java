@@ -5,7 +5,7 @@
 package com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common.metric;
 
 /**
- * StatusEnum
+ * CloudConnector class represent information about CloudConnector device
  *
  * @author Harry / Symphony Dev Team<br>
  * Created on 22/10/2024
@@ -20,14 +20,13 @@ public enum CloudConnector {
 
 	CONNECTION_STATUS("ConnectionType", "connection"),
 	CONNECTION_AVAILABLE("ConnectionTypeAvailable", "available"),
-	CONNECTION_UPDATE_TIME("ConnectionTypeUpdateTime", "updateTime"),
-
+	CONNECTION_UPDATE_TIME("ConnectionTypeUpdate", "updateTime"),
 	;
 	private final String name;
 	private final String field;
 
 	/**
-	 * Constructor for SystemNetworkInformation.
+	 * Constructor for CloudConnector.
 	 *
 	 * @param name The name representing the system information category.
 	 * @param field The field associated with the category.
@@ -36,6 +35,7 @@ public enum CloudConnector {
 		this.name = name;
 		this.field = field;
 	}
+
 	/**
 	 * Retrieves {@link #name}
 	 *

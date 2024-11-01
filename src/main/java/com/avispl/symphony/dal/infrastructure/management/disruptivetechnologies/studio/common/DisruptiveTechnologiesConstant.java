@@ -5,7 +5,7 @@
 package com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common;
 
 /**
- * DisruptiveTechnologiesConstant
+ * DisruptiveTechnologiesConstant class used in monitoring
  *
  * @author Harry / Symphony Dev Team<br>
  * Created on 22/10/2024
@@ -19,8 +19,8 @@ public class DisruptiveTechnologiesConstant {
 	public static final String SPACE = " ";
 	public static final String EMPTY = "";
 	public static final String GENERIC = "Generic";
-	public static final String DEFAULT_FORMAT_DATETIME_WITH_MILLIS  = "yyyy-MM-dd'T'HH:mm:ss.S'Z'";
-	public static final String DEFAULT_FORMAT_DATETIME_WITHOUT_MILLIS  = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
+	public static final String DEFAULT_FORMAT_DATETIME_WITH_MILLIS = "yyyy-MM-dd'T'HH:mm:ss.S'Z'";
+	public static final String DEFAULT_FORMAT_DATETIME_WITHOUT_MILLIS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
 	public static final String TARGET_FORMAT_DATETIME = "MMM d, yyyy, h:mm a";
 	public static final String ACCESS_TOKEN = "access_token";
 	public static final String EXPIRES_IN = "expires_in";

@@ -5,7 +5,7 @@
 package com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common;
 
 /**
- * SystemInformation class represents information about the aggregator.
+ * AggregatorInformation class represents information about the aggregator.
  *
  * @author Harry / Symphony Dev Team<br>
  * Created on 22/10/2024
@@ -27,7 +27,7 @@ public enum AggregatorInformation {
 	private final String group;
 
 	/**
-	 * Constructor for SystemNetworkInformation.
+	 * Constructor for AggregatorInformation.
 	 *
 	 * @param name The name representing the system information category.
 	 * @param group The corresponding value associated with the category.

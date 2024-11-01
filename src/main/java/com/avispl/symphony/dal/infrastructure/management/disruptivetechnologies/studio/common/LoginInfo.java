@@ -8,7 +8,7 @@ package com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies
  * LoginInfo class represents information about a login session.
  *
  * @author Harry / Symphony Dev Team<br>
- * Created on 6/18/2024
+ * Created on 23/10/2024
  * @since 1.0.0
  */
 public class LoginInfo {
@@ -58,7 +58,6 @@ public class LoginInfo {
 		this.token = token;
 	}
 
-
 	/**
 	 * Check token expiry time
 	 * Token is timeout when elapsed > 10min
@@ -66,7 +65,6 @@ public class LoginInfo {
 	 * @return boolean
 	 */
 	public boolean isTimeout() {
-		long elapsed = (System.currentTimeMillis() - loginDateTime) / 60000;
-		return elapsed > 10;
+		return ((System.currentTimeMillis() - loginDateTime) / 60000) > 10;
 	}
 }

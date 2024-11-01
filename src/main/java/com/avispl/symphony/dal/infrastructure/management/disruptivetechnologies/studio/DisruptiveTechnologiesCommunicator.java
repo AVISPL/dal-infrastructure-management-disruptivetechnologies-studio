@@ -39,13 +39,6 @@
 	import com.fasterxml.jackson.databind.JsonNode;
 	import com.fasterxml.jackson.databind.ObjectMapper;
 	import javax.security.auth.login.FailedLoginException;
-	import org.apache.http.HttpResponse;
-	import org.apache.http.client.HttpClient;
-	import org.apache.http.client.methods.HttpPost;
-	import org.apache.http.entity.StringEntity;
-	import org.apache.http.impl.client.HttpClients;
-	import org.apache.http.util.EntityUtils;
-	import org.openjdk.jol.info.ClassLayout;
 
 	import com.avispl.symphony.api.dal.control.Controller;
 	import com.avispl.symphony.api.dal.dto.control.ControllableProperty;
@@ -74,6 +67,8 @@
 	 * Supported features are:
 	 * Monitoring Aggregator Device:
 	 *  <ul>
+	 *    <li> Generic </li>
+	 *    <li> Cloud Connector </li>
 	 *  <ul>
 	 *
 	 * Subscription Group:
@@ -86,6 +81,18 @@
 	 *
 	 * General Info Aggregated Device:
 	 * <ul>
+	 *   Monitoring with sensors:
+	 *   <li> CO2 </li>
+	 *   <li> Contact </li>
+	 *   <li> Counting Proximity </li>
+	 *   <li> Counting Touch </li>
+	 *   <li> Desk Occupancy </li>
+	 *   <li> Humidity </li>
+	 *   <li> Motion </li>
+	 *   <li> Proximity </li>
+	 *   <li> Temperature </li>
+	 *   <li> Touch </li>
+	 *   <li> Water Detector </li>
 	 * </ul>
 	 *
 	 * @author Harry / Symphony Dev Team<br>
@@ -102,10 +109,10 @@
 
 		/**
 		 * How much time last monitoring cycle took to finish
-		 * */
+		 */
 		private Long lastMonitoringCycleDuration;
 
-		/** Adapter metadata properties - adapter version and build date*/
+		/** Adapter metadata properties - adapter version and build date */
 		private Properties adapterProperties;
 
 		/**
@@ -183,7 +190,7 @@
 
 		/**
 		 * Id of project
-		 * */
+		 */
 		private String projectID;
 
 		/**
@@ -200,11 +207,6 @@
 		 * A set containing cloud info.
 		 */
 		private Set<String> allCloudSet = new HashSet<>();
-
-		/**
-		 * time the token expires
-		 */
-		private Long expiresIn = 84600L * 1000;
 
 		/**
 		 * A set containing sensor info.
@@ -427,6 +429,48 @@
 			}
 		}
 
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void controlProperty(ControllableProperty controllableProperty) throws Exception {
+			reentrantLock.lock();
+			reentrantLock.unlock();
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void controlProperties(List<ControllableProperty> controllableProperties) throws Exception {
+			if (CollectionUtils.isEmpty(controllableProperties)) {
+				throw new IllegalArgumentException("ControllableProperties can not be null or empty");
+			}
+			for (ControllableProperty p : controllableProperties) {
+				try {
+					controlProperty(p);
+				} catch (Exception e) {
+					logger.error(String.format("Error when control property %s", p.getProperty()), e);
+				}
+			}
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public List<AggregatedDevice> retrieveMultipleStatistics() throws Exception {
+			if (executorService == null) {
+				executorService = Executors.newFixedThreadPool(1);
+				executorService.submit(deviceDataLoader = new DisruptiveTechnologiesCloudDataLoader());
+			}
+			nextDevicesCollectionIterationTimestamp = System.currentTimeMillis();
+			updateValidRetrieveStatisticsTimestamp();
+			if (cachedData.isEmpty()) {
+				return Collections.emptyList();
+			}
+			return cloneAndPopulateAggregatedDeviceList();
+		}
 
 		/**
 		 * {@inheritDoc}
@@ -455,8 +499,8 @@
 
 //				dynamicStatistics.put(DisruptiveTechnologiesConstant.ADAPTER_RUNNER_SIZE, String.valueOf(ClassLayout.parseInstance(this).toPrintable().length()));
 				long adapterUptime = System.currentTimeMillis() - adapterInitializationTimestamp;
-				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME_MIN, String.valueOf(adapterUptime / (1000*60)));
-				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME, normalizeUptime(adapterUptime/1000));
+				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME_MIN, String.valueOf(adapterUptime / (1000 * 60)));
+				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME, normalizeUptime(adapterUptime / 1000));
 				extendedStatistics.setStatistics(stats);
 				extendedStatistics.setDynamicStatistics(dynamicStatistics);
 				localExtendedStatistics = extendedStatistics;
@@ -467,20 +511,83 @@
 		}
 
 		/**
+		 * {@inheritDoc}
+		 * set API Key into Header of Request
+		 */
+		@Override
+		protected HttpHeaders putExtraRequestHeaders(HttpMethod httpMethod, String uri, HttpHeaders headers) {
+			headers.set("Accept", "application/json");
+			headers.set("Content-Type", "application/x-www-form-urlencoded");
+			if (loginInfo.getToken() != null && !uri.contains(DisruptiveTechnologiesCommand.GET_TOKEN)) {
+				headers.setBearerAuth(loginInfo.getToken());
+			}
+			return headers;
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		protected void authenticate() throws Exception {
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		protected void internalInit() throws Exception {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Internal init is called.");
+			}
+			adapterInitializationTimestamp = System.currentTimeMillis();
+			executorService = Executors.newFixedThreadPool(1);
+			executorService.submit(deviceDataLoader = new DisruptiveTechnologiesCloudDataLoader());
+			super.internalInit();
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		protected void internalDestroy() {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Internal destroy is called.");
+			}
+			if (deviceDataLoader != null) {
+				deviceDataLoader.stop();
+				deviceDataLoader = null;
+			}
+			if (executorService != null) {
+				executorService.shutdownNow();
+				executorService = null;
+			}
+			if (localExtendedStatistics != null && localExtendedStatistics.getStatistics() != null && localExtendedStatistics.getControllableProperties() != null) {
+				localExtendedStatistics.getStatistics().clear();
+				localExtendedStatistics.getControllableProperties().clear();
+			}
+			cacheValue.clear();
+			loginInfo = null;
+			nextDevicesCollectionIterationTimestamp = 0;
+			aggregatedDeviceList.clear();
+			cachedData.clear();
+			super.internalDestroy();
+		}
+
+		/**
 		 * Retrieves project information and updates the provided statistics map.
 		 *
 		 * @param stats the map where statistics will be stored
 		 * @throws Exception if there is an error during the retrieval process
 		 */
-		private void retrieveProjectInfo(Map<String, String> stats) throws Exception{
-			try{
+		private void retrieveProjectInfo(Map<String, String> stats) throws Exception {
+			try {
 				JsonNode response = this.doGet(String.format(DisruptiveTechnologiesCommand.GET_SINGLE_PROJECT, this.getProjectId()), JsonNode.class);
-				if(response != null) {
+				if (response != null) {
 					String GroupName = DisruptiveTechnologiesConstant.GENERIC + DisruptiveTechnologiesConstant.HASH;
 
 					for (AggregatorInformation property : AggregatorInformation.values()) {
 						String group = property.getGroup();
-						switch (property){
+						switch (property) {
 							case ORGANIZATION:
 								String[] OrganizationId = response.get(property.getName()).asText().split("/");
 								stats.put(GroupName + "OrganizationId", getDefaultValueForNullData(OrganizationId[1]));
@@ -513,14 +620,14 @@
 								stats.put(GroupName + "ProjectId", getDefaultValueForNullData(id[1]));
 								break;
 							default:
-								if(DisruptiveTechnologiesConstant.EMPTY.equals(group)){
+								if (DisruptiveTechnologiesConstant.EMPTY.equals(group)) {
 									stats.put(GroupName + uppercaseFirstCharacter(property.getName()), getDefaultValueForNullData(response.get(property.getName()).asText()));
 								}
 								break;
 						}
 					}
 				}
-			} catch (Exception e){
+			} catch (Exception e) {
 				throw new ResourceNotReachableException("Unable to retrieve project information.", e);
 			}
 		}
@@ -583,6 +690,10 @@
 
 		/**
 		 * Processes cloud connector item and updates the statistics map with the appropriate values.
+		 *
+		 * @param item the JSON node representing the device item
+		 * @param stats the map where statistics will be stored
+		 * @param group the group name for the device
 		 */
 		private void processCloudConnector(JsonNode item, Map<String, String> stats, String group, CloudConnector cloudConnector) {
 			String key = DisruptiveTechnologiesConstant.CLOUD_CONNECTOR + group + DisruptiveTechnologiesConstant.HASH + cloudConnector.getName();
@@ -613,6 +724,9 @@
 
 		/**
 		 * Retrieves the ID value for a cloud connector item.
+		 *
+		 * @param item the JSON node representing the device item
+		 * @param cloudConnector the CloudConnector type
 		 */
 		private String getIdValue(JsonNode item, CloudConnector cloudConnector) {
 			String[] name = item.get(cloudConnector.getField()).asText().split("/");
@@ -621,6 +735,9 @@
 
 		/**
 		 * Retrieves the connection status value for a cloud connector item.
+		 *
+		 * @param item the JSON node representing the device item
+		 * @param cloudConnector the CloudConnector type
 		 */
 		private String getStatusValue(JsonNode item, CloudConnector cloudConnector) {
 			JsonNode connectionStatusNode = item.path(DisruptiveTechnologiesConstant.REPORTED)
@@ -631,17 +748,26 @@
 
 		/**
 		 * Retrieves the connection availability value for a cloud connector item.
+		 *
+		 * @param item the JSON node representing the device item
+		 * @param cloudConnector the CloudConnector type
 		 */
 		private String getConnectionAvailableValue(JsonNode item, CloudConnector cloudConnector) {
 			JsonNode availableNode = item.path(DisruptiveTechnologiesConstant.REPORTED)
 					.path(DisruptiveTechnologiesConstant.CONNECTION_STATUS)
 					.path(cloudConnector.getField());
 			String connectionAvailable = availableNode.toString();
-			return availableNode.isMissingNode() ? DisruptiveTechnologiesConstant.NONE : (!connectionAvailable.equals("[]") ? connectionAvailable : DisruptiveTechnologiesConstant.NONE);
+
+			return availableNode.isMissingNode() || connectionAvailable.equals("[]")
+					? DisruptiveTechnologiesConstant.NONE
+					: connectionAvailable;
 		}
 
 		/**
 		 * Retrieves and formats the update time for a cloud connector item.
+		 *
+		 * @param item the JSON node representing the device item
+		 * @param cloudConnector the CloudConnector type
 		 */
 		private String getConnectionUpdateTime(JsonNode item, CloudConnector cloudConnector) {
 			JsonNode updateTimeNode = item.path(DisruptiveTechnologiesConstant.REPORTED)
@@ -651,15 +777,15 @@
 		}
 
 		/**
-		 Populates detailed information for each device in the aggregated response.
+		 * Populates detailed information for each device in the aggregated response.
 		 * This method iterates over all devices in the response, filters out any device
 		 * of type "CCON", and processes the remaining devices
 		 */
 		private void populateDeviceDetails() {
 			try {
-				if (aggregatedResponse != null && aggregatedResponse.has(DisruptiveTechnologiesConstant.DEVICES)){
+				if (aggregatedResponse != null && aggregatedResponse.has(DisruptiveTechnologiesConstant.DEVICES)) {
 					for (JsonNode item : aggregatedResponse.get(DisruptiveTechnologiesConstant.DEVICES)) {
-						if (item.get("type") != null && !item.get("type").asText().equals(DisruptiveTechnologiesConstant.CCON)){
+						if (item.get("type") != null && !item.get("type").asText().equals(DisruptiveTechnologiesConstant.CCON)) {
 							JsonNode labelsNode = item.get(DisruptiveTechnologiesConstant.LABELS);
 
 							if (labelsNode != null && labelsNode.has(DisruptiveTechnologiesConstant.NAME)) {
@@ -705,6 +831,10 @@
 
 		/**
 		 * Generate JWT Token by KeyId, Email and SecretId
+		 *
+		 * @param keyId the key id for authentication
+		 * @param email the email for authentication
+		 * @param secret the secret id for the application
 		 */
 		private String generateJWT(String keyId, String email, String secret) {
 			long now = System.currentTimeMillis();
@@ -740,7 +870,7 @@
 			String jwtToken = generateJWT(keyId, email, secret);
 			String body = String.format(DisruptiveTechnologiesConstant.REQUEST_BODY, URLEncoder.encode(jwtToken, "UTF-8"));
 			try {
-				JsonNode response = post(DisruptiveTechnologiesConstant.URI + DisruptiveTechnologiesConstant.COLON + getPort() + DisruptiveTechnologiesCommand.GET_TOKEN, body, JsonNode.class);
+				JsonNode response = doPost(DisruptiveTechnologiesConstant.URI + DisruptiveTechnologiesConstant.COLON + getPort() + DisruptiveTechnologiesCommand.GET_TOKEN, body, JsonNode.class);
 				if (response.size() == 1) {
 					throw new IllegalArgumentException("ClientId and ClientSecret are not correct");
 				}
@@ -751,7 +881,6 @@
 					loginInfo = null;
 					throw new ResourceNotReachableException("Unable to retrieve the authorization token, endpoint not reachable");
 				}
-				expiresIn = (response.get(DisruptiveTechnologiesConstant.EXPIRES_IN).asLong() - 1800) * 1000;
 
 			} catch (CommandFailureException e) {
 				if (e.getStatusCode() == 400) {
@@ -764,49 +893,6 @@
 			} catch (Exception ex) {
 				throw new ResourceNotReachableException("Unable to retrieve the authorization token, endpoint not reachable", ex);
 			}
-		}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public void controlProperty(ControllableProperty controllableProperty) throws Exception {
-			reentrantLock.lock();
-			reentrantLock.unlock();
-		}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public void controlProperties(List<ControllableProperty> controllableProperties) throws Exception {
-			if (CollectionUtils.isEmpty(controllableProperties)) {
-				throw new IllegalArgumentException("ControllableProperties can not be null or empty");
-			}
-			for (ControllableProperty p : controllableProperties) {
-				try {
-					controlProperty(p);
-				} catch (Exception e) {
-					logger.error(String.format("Error when control property %s", p.getProperty()), e);
-				}
-			}
-		}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public List<AggregatedDevice> retrieveMultipleStatistics() throws Exception {
-			if (executorService == null) {
-				executorService = Executors.newFixedThreadPool(1);
-				executorService.submit(deviceDataLoader = new DisruptiveTechnologiesCloudDataLoader());
-			}
-			nextDevicesCollectionIterationTimestamp = System.currentTimeMillis();
-			updateValidRetrieveStatisticsTimestamp();
-			if (cachedData.isEmpty()) {
-				return Collections.emptyList();
-			}
-			return cloneAndPopulateAggregatedDeviceList();
 		}
 
 		/**
@@ -841,6 +927,7 @@
 		/**
 		 * Parses the provided update time string into a timestamp in milliseconds.
 		 * If parsing fails, it logs an error and returns 0.
+		 *
 		 * @param updateTime the update time string in the expected date format
 		 */
 		private long parseUpdateTime(String updateTime) {
@@ -857,15 +944,15 @@
 		 * Formats specific properties within the provided map by adjusting date formats
 		 * and handling empty or null values. The method performs the following adjustments:
 		 * - If the property name ends with "HumidityUpdate", "Update", "C02Update", or "PressureUpdate",
-		 *   it converts the date format of the value using {@link #convertDateTimeFormat(String)}.
+		 * it converts the date format of the value using {@link #convertDateTimeFormat(String)}.
 		 * - If the property name ends with "DeskOccupancyRemarks", it checks the value for an empty array
-		 *   format ("[]") and, if found, replaces it with "None". Otherwise, it concatenates values into a string.
+		 * format ("[]") and, if found, replaces it with "None". Otherwise, it concatenates values into a string.
 		 */
 		private void formatProperties(Map<String, String> properties) {
 			properties.forEach((name, value) -> {
 				if (name.endsWith("HumidityUpdate") || name.endsWith("Update") || name.endsWith("C02Update") || name.endsWith("PressureUpdate")) {
 					properties.put(name, convertDateTimeFormat(value));
-				} else if(name.endsWith("DeskOccupancyRemarks")) {
+				} else if (name.endsWith("DeskOccupancyRemarks")) {
 					properties.put(name, !Objects.equals(value, "[]") ? getDefaultValueForNullData(String.join(", ", value)) : "None");
 				}
 			});
@@ -880,19 +967,6 @@
 					.stream()
 					.filter(aggregatedDevice -> list.contains(aggregatedDevice.getDeviceId()))
 					.collect(Collectors.toList());
-		}
-
-		/**
-		 * {@inheritDoc}
-		 * set API Key into Header of Request
-		 */
-		@Override
-		protected HttpHeaders putExtraRequestHeaders(HttpMethod httpMethod, String uri, HttpHeaders headers) {
-			headers.set("Accept", "application/json");
-			if (loginInfo.getToken() != null && !uri.contains(DisruptiveTechnologiesCommand.GET_TOKEN)) {
-				headers.setBearerAuth(loginInfo.getToken());
-			}
-			return headers;
 		}
 
 		/**
@@ -940,76 +1014,6 @@
 		 */
 		private String getDefaultValueForNullData(String value) {
 			return StringUtils.isNotNullOrEmpty(value) && !"null".equalsIgnoreCase(value) ? uppercaseFirstCharacter(value) : DisruptiveTechnologiesConstant.NONE;
-		}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		protected void authenticate() throws Exception {}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		protected void internalInit() throws Exception {
-			if (logger.isDebugEnabled()) {
-				logger.debug("Internal init is called.");
-			}
-			adapterInitializationTimestamp = System.currentTimeMillis();
-			executorService = Executors.newFixedThreadPool(1);
-			executorService.submit(deviceDataLoader = new DisruptiveTechnologiesCloudDataLoader());
-			super.internalInit();
-		}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		protected void internalDestroy() {
-			if (logger.isDebugEnabled()) {
-				logger.debug("Internal destroy is called.");
-			}
-			if (deviceDataLoader != null) {
-				deviceDataLoader.stop();
-				deviceDataLoader = null;
-			}
-			if (executorService != null) {
-				executorService.shutdownNow();
-				executorService = null;
-			}
-			if (localExtendedStatistics != null && localExtendedStatistics.getStatistics() != null && localExtendedStatistics.getControllableProperties() != null) {
-				localExtendedStatistics.getStatistics().clear();
-				localExtendedStatistics.getControllableProperties().clear();
-			}
-			cacheValue.clear();
-			loginInfo = null;
-			nextDevicesCollectionIterationTimestamp = 0;
-			aggregatedDeviceList.clear();
-			cachedData.clear();
-			super.internalDestroy();
-		}
-
-		/**
-		 * Sends an HTTP POST request to the specified URL with the given body and
-		 * returns the response as a {@link JsonNode}.
-		 *
-		 * @param url The URL to which the POST request is sent.
-		 * @param body The body of the POST request, which will be sent as an
-		 *             "application/x-www-form-urlencoded" payload.
-		 */
-		public JsonNode post(String url, String body, Class<JsonNode> responseType) throws IOException {
-			HttpClient client = HttpClients.createDefault();
-			HttpPost post = new HttpPost(url);
-			post.setHeader("Content-Type", "application/x-www-form-urlencoded");
-			post.setEntity(new StringEntity(body));
-			HttpResponse response = client.execute(post);
-			if (response.getStatusLine().getStatusCode() != 200) {
-				throw new IOException("Unexpected code " + response.getStatusLine().getStatusCode());
-			}
-			String responseBody = EntityUtils.toString(response.getEntity());
-			ObjectMapper mapper = new ObjectMapper();
-			return mapper.readTree(responseBody);
 		}
 
 		/**

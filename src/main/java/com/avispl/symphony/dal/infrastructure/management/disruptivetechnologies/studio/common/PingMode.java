@@ -14,7 +14,7 @@ import org.apache.commons.logging.LogFactory;
  * Ping mode - ICMP vs TCP
  *
  * @author Harry / Symphony Dev Team<br>
- * Created on 3/19/2024
+ * Created on 22/10/2024
  * @since 1.0.0
  */
 public enum PingMode {

@@ -15,8 +15,8 @@ public enum CloudConnector {
 	ID("Id", "name"),
 	TYPE("Type", "type"),
 	PRODUCT_NUMBER("ProductNumber", "productNumber"),
-	LABELS_NAME("LabelsName", "name"),
-	LABELS_CUSTOM("LabelCustom", "custom"),
+	LABEL_NAME("LabelName", "name"),
+	LABEL_DESCRIPTION("LabelDescription", "description"),
 
 	CONNECTION_STATUS("ConnectionType", "connection"),
 	CONNECTION_AVAILABLE("ConnectionTypeAvailable", "available"),

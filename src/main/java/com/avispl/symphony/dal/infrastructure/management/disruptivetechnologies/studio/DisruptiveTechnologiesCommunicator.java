@@ -5,15 +5,12 @@
 	package com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio;
 
 	import java.io.IOException;
-	import java.net.ConnectException;
-	import java.net.Socket;
-	import java.net.SocketTimeoutException;
 	import java.net.URLEncoder;
-	import java.net.UnknownHostException;
 	import java.time.OffsetDateTime;
 	import java.time.ZoneOffset;
 	import java.time.format.DateTimeFormatter;
 	import java.util.ArrayList;
+	import java.util.Arrays;
 	import java.util.Collections;
 	import java.util.Date;
 	import java.util.HashMap;
@@ -38,6 +35,7 @@
 	import com.fasterxml.jackson.databind.JsonNode;
 	import com.fasterxml.jackson.databind.ObjectMapper;
 	import javax.security.auth.login.FailedLoginException;
+	import org.openjdk.jol.info.ClassLayout;
 
 	import com.avispl.symphony.api.dal.control.Controller;
 	import com.avispl.symphony.api.dal.dto.control.ControllableProperty;
@@ -52,11 +50,11 @@
 	import com.avispl.symphony.dal.aggregator.parser.PropertiesMapping;
 	import com.avispl.symphony.dal.aggregator.parser.PropertiesMappingParser;
 	import com.avispl.symphony.dal.communicator.RestCommunicator;
+	import com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common.AggregatedInformation;
 	import com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common.AggregatorInformation;
 	import com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common.DisruptiveTechnologiesCommand;
 	import com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common.DisruptiveTechnologiesConstant;
 	import com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common.LoginInfo;
-	import com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common.PingMode;
 	import com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies.studio.common.metric.CloudConnector;
 	import com.avispl.symphony.dal.util.StringUtils;
 
@@ -242,7 +240,7 @@
 
 		class DisruptiveTechnologiesCloudDataLoader implements Runnable {
 			private volatile boolean inProgress;
-			private volatile boolean flag = false;
+			private volatile boolean dataFetchCompleted = false;
 
 			public DisruptiveTechnologiesCloudDataLoader() {
 				inProgress = true;
@@ -274,9 +272,9 @@
 						}
 
 						long currentTimestamp = System.currentTimeMillis();
-						if (!flag && nextDevicesCollectionIterationTimestamp <= currentTimestamp) {
+						if (!dataFetchCompleted && nextDevicesCollectionIterationTimestamp <= currentTimestamp) {
 							populateDeviceDetails();
-							flag = true;
+							dataFetchCompleted = true;
 						}
 
 						while (nextDevicesCollectionIterationTimestamp > System.currentTimeMillis()) {
@@ -290,11 +288,11 @@
 						if (!inProgress) {
 							break loop;
 						}
-						if (flag) {
+						if (dataFetchCompleted) {
 							nextDevicesCollectionIterationTimestamp = System.currentTimeMillis() + 30000;
 							lastMonitoringCycleDuration = (System.currentTimeMillis() - startCycle) / 1000;
 							logger.debug("Finished collecting devices statistics cycle at " + new Date() + ", total duration: " + lastMonitoringCycleDuration);
-							flag = false;
+							dataFetchCompleted = false;
 						}
 
 						if (logger.isDebugEnabled()) {
@@ -341,26 +339,29 @@
 		}
 
 		/**
-		 * ping mode
+		 * Configurable property for historical properties, comma separated values kept as set locally
 		 */
-		private PingMode pingMode = PingMode.ICMP;
+		private Set<String> historicalProperties = new HashSet<>();
 
 		/**
-		 * Retrieves {@link #pingMode}
+		 * Retrieves {@link #historicalProperties}
 		 *
-		 * @return value of {@link #pingMode}
+		 * @return value of {@link #historicalProperties}
 		 */
-		public String getPingMode() {
-			return pingMode.name();
+		public String getHistoricalProperties() {
+			return String.join(",", this.historicalProperties);
 		}
 
 		/**
-		 * Sets {@link #pingMode} value
+		 * Sets {@link #historicalProperties} value
 		 *
-		 * @param pingMode new value of {@link #pingMode}
+		 * @param historicalProperties new value of {@link #historicalProperties}
 		 */
-		public void setPingMode(String pingMode) {
-			this.pingMode = PingMode.ofString(pingMode);
+		public void setHistoricalProperties(String historicalProperties) {
+			this.historicalProperties.clear();
+			Arrays.asList(historicalProperties.split(",")).forEach(propertyName -> {
+				this.historicalProperties.add(propertyName.trim());
+			});
 		}
 
 		/**
@@ -378,64 +379,9 @@
 
 		/**
 		 * {@inheritDoc}
-		 * <p>
-		 *
-		 * Check for available devices before retrieving the value
-		 * ping latency information to Symphony
 		 */
 		@Override
-		public int ping() throws Exception {
-			if (this.pingMode == PingMode.ICMP) {
-				return super.ping();
-			} else if (this.pingMode == PingMode.TCP) {
-				if (isInitialized()) {
-					long pingResultTotal = 0L;
-
-					for (int i = 0; i < this.getPingAttempts(); i++) {
-						long startTime = System.currentTimeMillis();
-
-						try (Socket puSocketConnection = new Socket(this.host, this.getPort())) {
-							puSocketConnection.setSoTimeout(this.getPingTimeout());
-							if (puSocketConnection.isConnected()) {
-								long pingResult = System.currentTimeMillis() - startTime;
-								pingResultTotal += pingResult;
-								if (this.logger.isTraceEnabled()) {
-									this.logger.trace(String.format("PING OK: Attempt #%s to connect to %s on port %s succeeded in %s ms", i + 1, host, this.getPort(), pingResult));
-								}
-							} else {
-								if (this.logger.isDebugEnabled()) {
-									this.logger.debug(String.format("PING DISCONNECTED: Connection to %s did not succeed within the timeout period of %sms", host, this.getPingTimeout()));
-								}
-								return this.getPingTimeout();
-							}
-						} catch (SocketTimeoutException | ConnectException tex) {
-							throw new RuntimeException("Socket connection timed out", tex);
-						} catch (UnknownHostException ex) {
-							throw new UnknownHostException(String.format("Connection timed out, UNKNOWN host %s", host));
-						} catch (Exception e) {
-							if (this.logger.isWarnEnabled()) {
-								this.logger.warn(String.format("PING TIMEOUT: Connection to %s did not succeed, UNKNOWN ERROR %s: ", host, e.getMessage()));
-							}
-							return this.getPingTimeout();
-						}
-					}
-					return Math.max(1, Math.toIntExact(pingResultTotal / this.getPingAttempts()));
-				} else {
-					throw new IllegalStateException("Cannot use device class without calling init() first");
-				}
-			} else {
-				throw new IllegalArgumentException("Unknown PING Mode: " + pingMode);
-			}
-		}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public void controlProperty(ControllableProperty controllableProperty) throws Exception {
-			reentrantLock.lock();
-			reentrantLock.unlock();
-		}
+		public void controlProperty(ControllableProperty controllableProperty) throws Exception {}
 
 		/**
 		 * {@inheritDoc}
@@ -497,20 +443,10 @@
 				Map<String, String> dynamicStatistics = new HashMap<>();
 				ExtendedStatistics extendedStatistics = new ExtendedStatistics();
 
+				retrieveMetadata(stats, dynamicStatistics);
 				retrieveProjectInfo(stats);
 				retrieveSensorsInfo(stats);
 
-				dynamicStatistics.put(DisruptiveTechnologiesConstant.MONITORED_DEVICES_TOTAL, String.valueOf(aggregatedResponse.get(DisruptiveTechnologiesConstant.DEVICES).size()));
-				if (lastMonitoringCycleDuration != null) {
-					stats.put(DisruptiveTechnologiesConstant.MONITORING_CYCLE_DURATION, String.valueOf(lastMonitoringCycleDuration));
-				}
-				stats.put(DisruptiveTechnologiesConstant.ADAPTER_VERSION, getDefaultValueForNullData(adapterProperties.getProperty("aggregator.version")));
-				stats.put(DisruptiveTechnologiesConstant.ADAPTER_BUILD_DATE, getDefaultValueForNullData(adapterProperties.getProperty("aggregator.build.date")));
-
-//				dynamicStatistics.put(DisruptiveTechnologiesConstant.ADAPTER_RUNNER_SIZE, String.valueOf(ClassLayout.parseInstance(this).toPrintable().length()));
-				long adapterUptime = System.currentTimeMillis() - adapterInitializationTimestamp;
-				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME_MIN, String.valueOf(adapterUptime / (1000 * 60)));
-				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME, normalizeUptime(adapterUptime / 1000));
 				extendedStatistics.setStatistics(stats);
 				extendedStatistics.setDynamicStatistics(dynamicStatistics);
 				localExtendedStatistics = extendedStatistics;
@@ -584,6 +520,38 @@
 		}
 
 		/**
+		 * Retrieves metadata information and updates the provided statistics and dynamic map.
+		 *
+		 * @param stats the map where statistics will be stored
+		 * @param dynamicStatistics the map where dynamic statistics will be stored
+		 * @throws Exception if there is an error during the retrieval process
+		 */
+		private void retrieveMetadata(Map<String, String> stats, Map<String, String> dynamicStatistics) throws Exception {
+			try {
+				dynamicStatistics.put(DisruptiveTechnologiesConstant.MONITORED_DEVICES_TOTAL,
+						projectID != null ? String.valueOf(aggregatedResponse.get(DisruptiveTechnologiesConstant.DEVICES).size()) : "0");
+
+				if (projectID != null && lastMonitoringCycleDuration != null) {
+					stats.put(DisruptiveTechnologiesConstant.MONITORING_CYCLE_DURATION, String.valueOf(lastMonitoringCycleDuration));
+				}
+
+				stats.put(DisruptiveTechnologiesConstant.ADAPTER_VERSION,
+						getDefaultValueForNullData(adapterProperties.getProperty("aggregator.version")));
+				stats.put(DisruptiveTechnologiesConstant.ADAPTER_BUILD_DATE,
+						getDefaultValueForNullData(adapterProperties.getProperty("aggregator.build.date")));
+
+				dynamicStatistics.put(DisruptiveTechnologiesConstant.ADAPTER_RUNNER_SIZE,
+						String.valueOf(ClassLayout.parseInstance(this).toPrintable().length()));
+
+				long adapterUptime = System.currentTimeMillis() - adapterInitializationTimestamp;
+				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME_MIN, String.valueOf(adapterUptime / (1000 * 60)));
+				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME, normalizeUptime(adapterUptime / 1000));
+			} catch (Exception e) {
+				logger.error("Failed to populate metadata information with projectId " + projectID, e);
+			}
+		}
+
+		/**
 		 * Retrieves project information and updates the provided statistics map.
 		 *
 		 * @param stats the map where statistics will be stored
@@ -591,6 +559,14 @@
 		 */
 		private void retrieveProjectInfo(Map<String, String> stats) throws Exception {
 			try {
+				String projectId = this.getProjectId();
+				if(Objects.equals(projectId, "")) {
+					String group = DisruptiveTechnologiesConstant.GENERIC + DisruptiveTechnologiesConstant.HASH;
+					stats.put(group + "ProjectId", "Unknown");
+					stats.put(group + "ProjectName", "Unknown");
+					stats.put(group + "OrganizationId", "Unknown");
+					return;
+				}
 				JsonNode response = this.doGet(String.format(DisruptiveTechnologiesCommand.GET_SINGLE_PROJECT, this.getProjectId()), JsonNode.class);
 				if (response != null) {
 					String GroupName = DisruptiveTechnologiesConstant.GENERIC + DisruptiveTechnologiesConstant.HASH;
@@ -600,7 +576,7 @@
 						switch (property) {
 							case ORGANIZATION:
 								String[] OrganizationId = response.get(property.getName()).asText().split("/");
-								stats.put(GroupName + "OrganizationId", getDefaultValueForNullData(OrganizationId[1]));
+								stats.put(GroupName + "OrganizationId", OrganizationId[1]);
 								break;
 							case ORGANIZATION_DISPLAY_NAME:
 								stats.put(GroupName + "OrganizationName", getDefaultValueForNullData(response.get(property.getName()).asText()));
@@ -627,7 +603,7 @@
 							case PROJECT_ID:
 								String[] id = response.get(property.getName()).asText().split("/");
 								projectID = id[1];
-								stats.put(GroupName + "ProjectId", getDefaultValueForNullData(id[1]));
+								stats.put(GroupName + "ProjectId", id[1]);
 								break;
 							default:
 								if (DisruptiveTechnologiesConstant.EMPTY.equals(group)) {
@@ -638,7 +614,15 @@
 					}
 				}
 			} catch (Exception e) {
-				throw new ResourceNotReachableException("Unable to retrieve project information.", e);
+				if (e.getMessage().contains("403")) {
+					String group = DisruptiveTechnologiesConstant.GENERIC + DisruptiveTechnologiesConstant.HASH;
+					stats.put(group + "ProjectId", projectId);
+					stats.put(group + "ProjectName", "None");
+					stats.put(group + "OrganizationId", "None");
+					logger.error("403 Forbidden: Invalid projectId or insufficient permissions for projectId " + projectID, e);
+				} else {
+					throw new ResourceNotReachableException("Unable to retrieve project information.", e);
+				}
 			}
 		}
 
@@ -671,7 +655,9 @@
 					}
 
 					JsonNode labelsNode = item.get(DisruptiveTechnologiesConstant.LABELS);
-					String group = labelsNode.get(DisruptiveTechnologiesConstant.NAME).asText();
+					String group = labelsNode.get(DisruptiveTechnologiesConstant.NAME).asText().isEmpty()
+							? uppercaseFirstCharacter(item.get("type").asText()) + DisruptiveTechnologiesConstant.SPACE + DisruptiveTechnologiesConstant.SENSOR
+							: labelsNode.get(DisruptiveTechnologiesConstant.NAME).asText();
 					allCloudSet.add(group);
 
 					for (CloudConnector cloudConnector : CloudConnector.values()) {
@@ -695,7 +681,7 @@
 		 * @return true if the item type is "CCON", false otherwise
 		 */
 		private boolean isConnectorType(JsonNode item) {
-			return item.get("type").asText().equals(DisruptiveTechnologiesConstant.CCON);
+			return item.at("/type").asText().equals(DisruptiveTechnologiesConstant.CCON);
 		}
 
 		/**
@@ -711,25 +697,43 @@
 
 			switch (cloudConnector) {
 				case ID:
-					value = getIdValue(item, cloudConnector);
+					value = getIdValueOfCloudConnector(item, cloudConnector);
 					break;
-				case LABELS_NAME:
-					value = item.path("labels").path(cloudConnector.getField()).asText();
+				case LABEL_NAME:
+					String labelName = item.path(DisruptiveTechnologiesConstant.LABELS).path(cloudConnector.getField()).asText();
+					value = labelName.isEmpty() ? getDefaultValueOfCloudConnector(item, DisruptiveTechnologiesConstant.SENSOR) : labelName;
+					break;
+				case LABEL_DESCRIPTION:
+					String labelDescription = item.path(DisruptiveTechnologiesConstant.LABELS).path(cloudConnector.getField()).asText();
+					value = labelDescription.isEmpty() ? getDefaultValueOfCloudConnector(item, DisruptiveTechnologiesConstant.DESCRIPTION) : labelDescription;
 					break;
 				case CONNECTION_STATUS:
-					value = getStatusValue(item, cloudConnector);
+					value = getDefaultValueForNullData(getStatusValue(item, cloudConnector));
 					break;
 				case CONNECTION_AVAILABLE:
-					value = getConnectionAvailableValue(item, cloudConnector);
+					value = getDefaultValueForNullData(getConnectionAvailableValue(item, cloudConnector));
 					break;
 				case CONNECTION_UPDATE_TIME:
-					value = getConnectionUpdateTime(item, cloudConnector);
+					value = getDefaultValueForNullData(getConnectionUpdateTime(item, cloudConnector));
 					break;
 				default:
-					value = item.path(cloudConnector.getField()).asText();
+					value = getDefaultValueForNullData(item.path(cloudConnector.getField()).asText());
 					break;
 			}
-			stats.put(key, getDefaultValueForNullData(value));
+			stats.put(key, value);
+		}
+
+		/**
+		 * Retrieves the type value from the given JSON node based on the specified cloud connector field.
+		 * If the field is not present or is null, returns a constant representing a non-existent value.
+		 *
+		 * @param item the JSON node containing type information
+		 * @return the formatted type value as a string; if the field is missing or null, returns {@link DisruptiveTechnologiesConstant#NONE}
+		 */
+		private String getDefaultValueOfCloudConnector(JsonNode item, String suffix) {
+			JsonNode fieldNode = item.get(CloudConnector.TYPE.getField());
+			String fieldValue = fieldNode.asText() + DisruptiveTechnologiesConstant.SPACE + suffix;
+			return uppercaseFirstCharacter(fieldValue);
 		}
 
 		/**
@@ -738,8 +742,15 @@
 		 * @param item the JSON node representing the device item
 		 * @param cloudConnector the CloudConnector type
 		 */
-		private String getIdValue(JsonNode item, CloudConnector cloudConnector) {
-			String[] name = item.get(cloudConnector.getField()).asText().split("/");
+		private String getIdValueOfCloudConnector(JsonNode item, CloudConnector cloudConnector) {
+			if (cloudConnector == null || cloudConnector.getField() == null) {
+				return DisruptiveTechnologiesConstant.NONE;
+			}
+			JsonNode fieldNode = item.get(cloudConnector.getField());
+			if (fieldNode == null || fieldNode.isNull()) {
+				return DisruptiveTechnologiesConstant.NONE;
+			}
+			String[] name = fieldNode.asText().split("/");
 			return name.length > 3 ? name[3] : DisruptiveTechnologiesConstant.NONE;
 		}
 
@@ -795,7 +806,7 @@
 			try {
 				if (aggregatedResponse != null && aggregatedResponse.has(DisruptiveTechnologiesConstant.DEVICES)) {
 					for (JsonNode item : aggregatedResponse.get(DisruptiveTechnologiesConstant.DEVICES)) {
-						if (item.get("type") != null && !item.get("type").asText().equals(DisruptiveTechnologiesConstant.CCON)) {
+						if (item.at("/type") != null && !item.at("/type").asText().equals(DisruptiveTechnologiesConstant.CCON)) {
 							JsonNode labelsNode = item.get(DisruptiveTechnologiesConstant.LABELS);
 
 							if (labelsNode != null && labelsNode.has(DisruptiveTechnologiesConstant.NAME)) {
@@ -917,20 +928,132 @@
 				for (AggregatedDevice item : cachedData) {
 					String updateTime = item.getProperties().get("NetworkStatus#Update");
 
+					Map<String, String> dynamicStats = new HashMap<>();
+					Map<String, String> stats = new HashMap<>();
+
 					long updateTimeMillis = parseUpdateTime(updateTime);
 					AggregatedDevice aggregatedDevice = new AggregatedDevice();
 					aggregatedDevice.setDeviceId(item.getDeviceId());
-					aggregatedDevice.setDeviceModel(item.getDeviceModel());
-					aggregatedDevice.setDeviceName(item.getDeviceName());
+					aggregatedDevice.setDeviceName(item.getDeviceName().isEmpty() ?
+							getDefaultNameOrDescriptionOfSensor(item.getDeviceModel(), DisruptiveTechnologiesConstant.SENSOR)
+							: item.getDeviceName());
+
+					populateDeviceSensor(item.getProperties(), stats, dynamicStats);
 
 					aggregatedDevice.setDeviceOnline(currentTimestamp - updateTimeMillis <= 60 * 60 * 1000);
 
-					formatProperties(item.getProperties());
-					aggregatedDevice.setProperties(item.getProperties());
+					formatProperties(stats);
+					aggregatedDevice.setProperties(stats);
+					aggregatedDevice.setDynamicStatistics(dynamicStats);
 					aggregatedDeviceList.add(aggregatedDevice);
 				}
 			}
 			return aggregatedDeviceList;
+		}
+
+		/**
+		 * Populates device sensor information into the specified {@code stats} map based on the cached data.
+		 * This method retrieve data from the cached device sensor information and extracts relevant sensor properties.
+		 *
+		 * @param cached The cached data containing device sensor information.
+		 * @param stats The map to populate with the extracted sensor information.
+		 * @param dynamicStats The map to populate with the dynamic sensor information.
+		 */
+		private void populateDeviceSensor(Map<String, String> cached, Map<String, String> stats, Map<String, String> dynamicStats){
+			try{
+				for (AggregatedInformation item : AggregatedInformation.values()) {
+						String name = item.getGroup() + item.getName();
+						String value = getDefaultValueForNullData(cached.get(name));
+					if (DisruptiveTechnologiesConstant.NONE.equalsIgnoreCase(value) && !isLabelField(item)) {
+						continue;
+					}
+					boolean propertyListed = !historicalProperties.isEmpty() && historicalProperties.stream().anyMatch(name::endsWith);
+						switch (item) {
+							case NETWORK_STATUS_SIGNAL_STRENGTH:
+							case NETWORK_STATUS_RSSI:
+							case BATTERY_STATUS_PERCENTAGE:
+							case TEMPERATURE_VALUE:
+							case HUMIDITY_RELATIVE:
+							case HUMIDITY_TEMP:
+							case OBJECT_PRESENT_COUNT_TOTAL:
+							case CO2_PPM:
+								if(propertyListed){
+									dynamicStats.put(name, value);
+								}
+								stats.put(name, value);
+								break;
+							case PRESSURE_PASCAL:
+								try {
+									int pressure = (int) Double.parseDouble(value) / 100;
+									String formattedPressure = String.valueOf(pressure);
+									if (propertyListed) {
+										dynamicStats.put(name, formattedPressure);
+									}
+									stats.put(name, formattedPressure);
+								} catch (NumberFormatException e) {
+									logger.error("Error parsing pressure value for " + name, e);
+									stats.put(name, DisruptiveTechnologiesConstant.NONE);
+								}
+								break;
+							case OBJECT_PRESENT_STATE:
+								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "OPEN" : "CLOSE");
+								break;
+							case WATER_PRESENT_STATE:
+								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "No Water Detected" : "Water Detected");
+								break;
+							case NETWORK_STATUS_TRANSMISSION_MODE:
+								stats.put(name, "LOW_POWER_STANDARD_MODE".equals(value) ? "Standard power usage" : "");
+								break;
+							case LABEL_NAME:
+								String labelName = Objects.equals(value, DisruptiveTechnologiesConstant.NONE)
+										? getDefaultNameOrDescriptionOfSensor(cached.get(DisruptiveTechnologiesConstant.TYPE), DisruptiveTechnologiesConstant.SENSOR)
+										: value;
+								stats.put(name, labelName);
+								break;
+
+							case LABEL_DESCRIPTION:
+								String labelDescription = Objects.equals(value, DisruptiveTechnologiesConstant.NONE)
+										? getDefaultNameOrDescriptionOfSensor(cached.get(DisruptiveTechnologiesConstant.TYPE), DisruptiveTechnologiesConstant.DESCRIPTION)
+										: value;
+								stats.put(name, labelDescription);
+								break;
+							case TYPE:
+								stats.put(name, getTypeOfSensor(cached.get(DisruptiveTechnologiesConstant.TYPE)));
+								break;
+							default:
+								stats.put(name, value);
+								break;
+						}
+					}
+			} catch (Exception e) {
+				logger.error("Error while populate Sensor Info", e);
+			}
+		}
+
+
+		/**
+		 * If the type value is "Co2", it will be returned in uppercase. Otherwise, the first character
+		 * of the type value will be capitalized.
+		 *
+		 * @param item  the JSON node containing type information
+		 * @return the formatted type value as a string
+		 */
+		private String getTypeOfSensor(String item) {
+			return item.equals("co2") ? item.toUpperCase() : uppercaseFirstCharacter(item);
+		}
+
+		/**
+		 * Retrieves the default value from the given JSON node based on the specified sensor.
+		 * If the field is not present or is null, returns a constant representing a non-existent value.
+		 * If the type value is "Co2", it will be returned in uppercase. Otherwise, the first character
+		 * of the type value will be capitalized.
+		 *
+		 * @param item  the JSON node containing type information
+		 * @return the formatted type value as a string
+		 */
+		private String getDefaultNameOrDescriptionOfSensor(String item, String suffix) {
+			return (item.equals("co2") ? item.toUpperCase() : uppercaseFirstCharacter(item))
+					+ DisruptiveTechnologiesConstant.SPACE + suffix;
 		}
 
 
@@ -942,6 +1065,9 @@
 		 */
 		private long parseUpdateTime(String updateTime) {
 			try {
+				if(updateTime == null) {
+					return 0;
+				}
 				OffsetDateTime parsedDateTime = OffsetDateTime.parse(updateTime, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 				return parsedDateTime.toInstant().toEpochMilli();
 			} catch (Exception e) {
@@ -977,6 +1103,16 @@
 		private String uppercaseFirstCharacter(String input) {
 			char firstChar = input.charAt(0);
 			return Character.toUpperCase(firstChar) + input.substring(1);
+		}
+
+		/**
+		 * Checks if the specified {@link AggregatedInformation} item is either a
+		 * LABEL_NAME or LABEL_DESCRIPTION field.
+		 *
+		 * @param item the {@link AggregatedInformation} item to check
+		 **/
+		private boolean isLabelField(AggregatedInformation item) {
+			return item == AggregatedInformation.LABEL_NAME || item == AggregatedInformation.LABEL_DESCRIPTION;
 		}
 
 		/**

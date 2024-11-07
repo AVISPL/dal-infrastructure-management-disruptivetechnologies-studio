@@ -14,8 +14,8 @@ package com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies
 public enum AggregatedInformation {
 	TYPE("Type", ""),
 	PRODUCT_NUMBER("ProductNumber", ""),
-	LABELS_NAME("LabelName", ""),
-	LABELS_CUSTOM("LabelCustom", ""),
+	LABEL_NAME("LabelName", ""),
+	LABEL_DESCRIPTION("LabelDescription", ""),
 	CONNECTION_STATUS("ConnectionStatus", ""),
 
 	NETWORK_STATUS_SIGNAL_STRENGTH("SignalStrength(%)", "NetworkStatus#"),
@@ -43,7 +43,7 @@ public enum AggregatedInformation {
 	CONTACT_UPDATE_TIME("ContactUpdate", "SensorData#"),
 
 	/** Humidity **/
-	HUMIDITY_TEMP("TemperatureUpdate(C)", "SensorData#"),
+	HUMIDITY_TEMP("HumidityTemperature(C)", "SensorData#"),
 	HUMIDITY_RELATIVE("Humidity(%)", "SensorData#"),
 	HUMIDITY_UPDATE_TIME("HumidityUpdate", "SensorData#"),
 
@@ -52,12 +52,12 @@ public enum AggregatedInformation {
 	MOTION_UPDATE_TIME("MotionUpdate", "SensorData#"),
 
 	/** Proximity Counter **/
-	OBJECT_PRESENCE_COUNT_TOTAL("ObjectPresenceCount", "SensorData#"),
-	OBJECT_PRESENCE_COUNT_UPDATE_TIME("ObjectPresenceCountUpdate", "SensorData#"),
+	OBJECT_PRESENT_COUNT_TOTAL("ObjectPresentCount", "SensorData#"),
+	OBJECT_PRESENT_COUNT_UPDATE_TIME("ObjectPresentCountUpdate", "SensorData#"),
 
 	/** Proximity **/
-	OBJECT_PRESENCE_STATE("ObjectPresenceState", "SensorData#"),
-	OBJECT_PRESENCE_UPDATE_TIME("ObjectPresenceUpdate", "SensorData#"),
+	OBJECT_PRESENT_STATE("ObjectPresentState", "SensorData#"),
+	OBJECT_PRESENT_UPDATE_TIME("ObjectPresentUpdate", "SensorData#"),
 
 	/** Temperature **/
 	TEMPERATURE_VALUE("Temperature(C)", "SensorData#"),

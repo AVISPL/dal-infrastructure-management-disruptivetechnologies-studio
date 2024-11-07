@@ -32,6 +32,10 @@ public class DisruptiveTechnologiesConstant {
 	public static final String CONNECTION_STATUS = "connectionStatus";
 	public static final String LABELS = "labels";
 	public static final String NAME = "name";
+	public static final String SENSOR = "Sensor";
+	public static final String DESCRIPTION = "Description";
+	public static final String NOT_PRESENT = "NOT_PRESENT";
+	public static final String TYPE = "Type";
 
 	public static final String MONITORED_DEVICES_TOTAL = "MonitoredDevicesTotal";
 	public static final String MONITORING_CYCLE_DURATION = "LastMonitoringCycleDuration(s)";

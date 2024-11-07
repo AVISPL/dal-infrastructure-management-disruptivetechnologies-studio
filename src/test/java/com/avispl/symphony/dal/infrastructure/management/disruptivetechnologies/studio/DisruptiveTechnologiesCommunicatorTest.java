@@ -56,11 +56,9 @@ public class DisruptiveTechnologiesCommunicatorTest {
 	void testGetAggregatorData() throws Exception {
 		extendedStatistic = (ExtendedStatistics) disruptiveTechnologiesCommunicator.getMultipleStatistics().get(0);
 		Map<String, String> stats = extendedStatistic.getStatistics();
-//		Map<String, String> dsMap = extendedStatistic.getDynamicStatistics();
-//		System.out.println("stats: " + stats);
 		Assertions.assertEquals("AVI-SPL-LAB Inventory", stats.get("Generic#ProjectName"));
 		Assertions.assertEquals("AVI-SPL-LAB", stats.get("Generic#OrganizationName"));
-		Assertions.assertEquals("11", stats.get("Generic#MonitoredSensorCount"));
+		Assertions.assertEquals("12", stats.get("Generic#MonitoredSensorCount"));
 	}
 
 	@Test
@@ -69,14 +67,25 @@ public class DisruptiveTechnologiesCommunicatorTest {
 		disruptiveTechnologiesCommunicator.retrieveMultipleStatistics();
 		Thread.sleep(20000);
 		List<AggregatedDevice> aggregatedDeviceList = disruptiveTechnologiesCommunicator.retrieveMultipleStatistics();
-//		System.out.println("aggregatedDeviceList " + aggregatedDeviceList);
+		System.out.println("aggregatedDeviceList " + aggregatedDeviceList);
 		String sensorId = "emucrbc5qpqbmpf547g7dh0";
 		Optional<AggregatedDevice> aggregatedDevice = aggregatedDeviceList.stream().filter(item -> item.getDeviceId().equals(sensorId)).findFirst();
 		if (aggregatedDevice.isPresent()) {
 			Map<String, String> stats = aggregatedDevice.get().getProperties();
-			Assertions.assertEquals("co2", stats.get("Type"));
+			Assertions.assertEquals("CO2", stats.get("Type"));
 			Assertions.assertEquals("CO2 Sensor 1", stats.get("LabelName"));
 		}
+	}
+
+	@Test
+	void testGetMultipleStatisticsWithHistoricalProperties()throws Exception {
+		disruptiveTechnologiesCommunicator.setHistoricalProperties("SensorData#ObjectPresentCount, CO2(ppm), Temperature(C)");
+		disruptiveTechnologiesCommunicator.getMultipleStatistics();
+		disruptiveTechnologiesCommunicator.retrieveMultipleStatistics();
+		Thread.sleep(20000);
+		List<AggregatedDevice> aggregatedDeviceList = disruptiveTechnologiesCommunicator.retrieveMultipleStatistics();
+		System.out.println("aggregatedDeviceList: " + aggregatedDeviceList);
+		Assert.assertEquals(12, aggregatedDeviceList.size());
 	}
 
 	@Test

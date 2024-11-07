@@ -11,7 +11,7 @@ models:
         Type: at("/type")
         ProductNumber: at("/productNumber")
         LabelName: at("/labels/name")
-        LabelCustom: at("/labels/custom")
+        LabelDescription: at("/labels/description")
         ConnectionStatus: at("/connectionStatus")
         NetworkStatus#SignalStrength(%): at("/reported/networkStatus/signalStrength")
         NetworkStatus#RSSI: at("/reported/networkStatus/rssi")
@@ -47,12 +47,12 @@ models:
         SensorData#MotionUpdate: at("/reported/motion/updateTime")
 
         # Proximity Counter
-        SensorData#ObjectPresenceCount: at("/reported/objectPresentCount/total")
-        SensorData#ObjectPresenceCountUpdate: at("/reported/objectPresentCount/updateTime")
+        SensorData#ObjectPresentCount: at("/reported/objectPresentCount/total")
+        SensorData#ObjectPresentCountUpdate: at("/reported/objectPresentCount/updateTime")
 
         # Proximity
-        SensorData#ObjectPresenceState: at("/reported/objectPresent/state")
-        SensorData#ObjectPresenceUpdate: at("/reported/objectPresent/updateTime")
+        SensorData#ObjectPresentState: at("/reported/objectPresent/state")
+        SensorData#ObjectPresentUpdate: at("/reported/objectPresent/updateTime")
 
         # Temperature
         SensorData#Temperature(C): at("/reported/temperature/value")

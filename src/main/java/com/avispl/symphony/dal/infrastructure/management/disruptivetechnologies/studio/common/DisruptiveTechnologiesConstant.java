@@ -38,7 +38,7 @@ public class DisruptiveTechnologiesConstant {
 	public static final String TYPE = "Type";
 
 	public static final String MONITORED_DEVICES_TOTAL = "MonitoredDevicesTotal";
-	public static final String MONITORING_CYCLE_DURATION = "LastMonitoringCycleDuration(s)";
+	public static final String MONITORING_CYCLE_DURATION = "LastMonitoringCycleDuration(ms)";
 	public static final String ADAPTER_VERSION = "AdapterVersion";
 	public static final String ADAPTER_BUILD_DATE = "AdapterBuildDate";
 	public static final String ADAPTER_UPTIME_MIN = "AdapterUptime(min)";

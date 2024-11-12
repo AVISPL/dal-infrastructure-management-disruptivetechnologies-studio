@@ -290,7 +290,7 @@
 						}
 						if (dataFetchCompleted) {
 							nextDevicesCollectionIterationTimestamp = System.currentTimeMillis() + 30000;
-							lastMonitoringCycleDuration = System.currentTimeMillis() - startCycle;
+							lastMonitoringCycleDuration = (System.currentTimeMillis() - startCycle) / 1000;
 							logger.debug("Finished collecting devices statistics cycle at " + new Date() + ", total duration: " + lastMonitoringCycleDuration);
 							dataFetchCompleted = false;
 						}

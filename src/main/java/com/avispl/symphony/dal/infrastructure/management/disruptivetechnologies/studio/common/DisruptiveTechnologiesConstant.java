@@ -43,7 +43,7 @@ public class DisruptiveTechnologiesConstant {
 	public static final String ADAPTER_BUILD_DATE = "AdapterBuildDate";
 	public static final String ADAPTER_UPTIME_MIN = "AdapterUptime(min)";
 	public static final String ADAPTER_UPTIME = "AdapterUptime";
-	public static final String ADAPTER_RUNNER_SIZE = "RunnerSize(b)";
+	public static final String ADAPTER_RUNNER_SIZE = "RunnerSize(B)";
 	/**
 	 * Token timeout is 29 minutes, as this case reserve 1 minutes to make sure we never failed because of the timeout
 	 */

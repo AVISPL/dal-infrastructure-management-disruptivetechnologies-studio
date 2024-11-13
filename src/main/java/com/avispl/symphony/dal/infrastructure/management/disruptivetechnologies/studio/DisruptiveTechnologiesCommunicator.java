@@ -443,9 +443,9 @@
 				Map<String, String> dynamicStatistics = new HashMap<>();
 				ExtendedStatistics extendedStatistics = new ExtendedStatistics();
 
-				retrieveMetadata(stats, dynamicStatistics);
 				retrieveProjectInfo(stats);
 				retrieveSensorsInfo(stats);
+				retrieveMetadata(stats, dynamicStatistics);
 
 				extendedStatistics.setStatistics(stats);
 				extendedStatistics.setDynamicStatistics(dynamicStatistics);
@@ -531,8 +531,8 @@
 				dynamicStatistics.put(DisruptiveTechnologiesConstant.MONITORED_DEVICES_TOTAL,
 						projectID != null ? String.valueOf(aggregatedResponse.get(DisruptiveTechnologiesConstant.DEVICES).size()) : "0");
 
-				if (projectID != null && lastMonitoringCycleDuration != null) {
-					stats.put(DisruptiveTechnologiesConstant.MONITORING_CYCLE_DURATION, String.valueOf(lastMonitoringCycleDuration));
+				if (lastMonitoringCycleDuration != null) {
+					dynamicStatistics.put(DisruptiveTechnologiesConstant.MONITORING_CYCLE_DURATION, String.valueOf(lastMonitoringCycleDuration));
 				}
 
 				stats.put(DisruptiveTechnologiesConstant.ADAPTER_VERSION,
@@ -975,7 +975,6 @@
 							case TEMPERATURE_VALUE:
 							case HUMIDITY_RELATIVE:
 							case HUMIDITY_TEMP:
-							case OBJECT_PRESENT_COUNT_TOTAL:
 							case CO2_PPM:
 								if(propertyListed){
 									dynamicStats.put(name, value);

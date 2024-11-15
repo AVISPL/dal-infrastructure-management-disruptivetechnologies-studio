@@ -541,7 +541,7 @@
 						getDefaultValueForNullData(adapterProperties.getProperty("aggregator.build.date")));
 
 				dynamicStatistics.put(DisruptiveTechnologiesConstant.ADAPTER_RUNNER_SIZE,
-						String.valueOf(ClassLayout.parseInstance(this).toPrintable().length()));
+						String.valueOf(ClassLayout.parseInstance(this).toPrintable().length()/1000));
 
 				long adapterUptime = System.currentTimeMillis() - adapterInitializationTimestamp;
 				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME_MIN, String.valueOf(adapterUptime / (1000 * 60)));
@@ -967,19 +967,26 @@
 					if (DisruptiveTechnologiesConstant.NONE.equalsIgnoreCase(value) && !isLabelField(item)) {
 						continue;
 					}
-					boolean propertyListed = !historicalProperties.isEmpty() && historicalProperties.stream().anyMatch(name::endsWith);
+					boolean propertyListed = !historicalProperties.isEmpty() && isSupportedHistorical(name, item);
 						switch (item) {
 							case NETWORK_STATUS_SIGNAL_STRENGTH:
 							case NETWORK_STATUS_RSSI:
 							case BATTERY_STATUS_PERCENTAGE:
 							case TEMPERATURE_VALUE:
 							case HUMIDITY_RELATIVE:
-							case HUMIDITY_TEMP:
 							case CO2_PPM:
 								if(propertyListed){
 									dynamicStats.put(name, value);
+								}else {
+									stats.put(name, value);
 								}
-								stats.put(name, value);
+								break;
+							case HUMIDITY_TEMP:
+								if(propertyListed){
+									dynamicStats.put(DisruptiveTechnologiesConstant.TEMPERATURE_NAME, value);
+								} else {
+									stats.put(DisruptiveTechnologiesConstant.TEMPERATURE_NAME, value);
+								}
 								break;
 							case PRESSURE_PASCAL:
 								try {
@@ -1009,7 +1016,6 @@
 										: value;
 								stats.put(name, labelName);
 								break;
-
 							case LABEL_DESCRIPTION:
 								String labelDescription = Objects.equals(value, DisruptiveTechnologiesConstant.NONE)
 										? getDefaultNameOrDescriptionOfSensor(cached.get(DisruptiveTechnologiesConstant.TYPE), DisruptiveTechnologiesConstant.DESCRIPTION)
@@ -1027,6 +1033,19 @@
 			} catch (Exception e) {
 				logger.error("Error while populate Sensor Info", e);
 			}
+		}
+
+		/**
+		 * Verify historical properties
+		 * @param name name of historical properties
+		 * @param item name of value mapping
+		 * @return true or false
+		 */
+		private boolean isSupportedHistorical(String name, AggregatedInformation item) {
+			if(AggregatedInformation.HUMIDITY_TEMP.getName().equals(item.getName())){
+				return historicalProperties.stream().anyMatch(item1 -> item1.equals(DisruptiveTechnologiesConstant.TEMPERATURE_NAME));
+			}
+			return historicalProperties.stream().anyMatch(item1 -> item1.equals(name));
 		}
 
 

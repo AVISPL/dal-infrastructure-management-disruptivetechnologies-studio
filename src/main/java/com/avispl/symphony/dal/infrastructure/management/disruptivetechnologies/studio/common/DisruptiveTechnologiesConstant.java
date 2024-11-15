@@ -36,14 +36,14 @@ public class DisruptiveTechnologiesConstant {
 	public static final String DESCRIPTION = "Description";
 	public static final String NOT_PRESENT = "NOT_PRESENT";
 	public static final String TYPE = "Type";
-
+	public static final String TEMPERATURE_NAME = "SensorData#Temperature(C)";
 	public static final String MONITORED_DEVICES_TOTAL = "MonitoredDevicesTotal";
-	public static final String MONITORING_CYCLE_DURATION = "LastMonitoringCycleDuration(sec)";
+	public static final String MONITORING_CYCLE_DURATION = "LastMonitoringCycleDuration(s)";
 	public static final String ADAPTER_VERSION = "AdapterVersion";
 	public static final String ADAPTER_BUILD_DATE = "AdapterBuildDate";
 	public static final String ADAPTER_UPTIME_MIN = "AdapterUptime(min)";
 	public static final String ADAPTER_UPTIME = "AdapterUptime";
-	public static final String ADAPTER_RUNNER_SIZE = "RunnerSize(B)";
+	public static final String ADAPTER_RUNNER_SIZE = "RunnerSize(kB)";
 	/**
 	 * Token timeout is 29 minutes, as this case reserve 1 minutes to make sure we never failed because of the timeout
 	 */

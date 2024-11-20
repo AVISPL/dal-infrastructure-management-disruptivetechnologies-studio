@@ -1002,10 +1002,10 @@
 								}
 								break;
 							case OBJECT_PRESENT_STATE:
-								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "OPEN" : "CLOSE");
+								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "NO_OBJECT_DETECTED" : "OBJECT_DETECTED ");
 								break;
 							case WATER_PRESENT_STATE:
-								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "No Water Detected" : "Water Detected");
+								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "NO_WATER_DETECTED" : "WATER_DETECTED");
 								break;
 							case NETWORK_STATUS_TRANSMISSION_MODE:
 								stats.put(name, "LOW_POWER_STANDARD_MODE".equals(value) ? "Standard power usage" : "");

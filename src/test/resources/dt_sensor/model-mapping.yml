@@ -14,7 +14,7 @@ models:
         LabelDescription: at("/labels/description")
         ConnectionStatus: at("/connectionStatus")
         NetworkStatus#SignalStrength(%): at("/reported/networkStatus/signalStrength")
-        NetworkStatus#RSSI: at("/reported/networkStatus/rssi")
+        NetworkStatus#RSSI(dBm): at("/reported/networkStatus/rssi")
         NetworkStatus#Update: at("/reported/networkStatus/updateTime")
         NetworkStatus#TransmissionMode: at("/reported/networkStatus/transmissionMode")
 

@@ -19,7 +19,7 @@ public enum AggregatedInformation {
 	CONNECTION_STATUS("ConnectionStatus", ""),
 
 	NETWORK_STATUS_SIGNAL_STRENGTH("SignalStrength(%)", "NetworkStatus#"),
-	NETWORK_STATUS_RSSI("RSSI", "NetworkStatus#"),
+	NETWORK_STATUS_RSSI("RSSI(dBm)", "NetworkStatus#"),
 	NETWORK_STATUS_UPDATE_TIME("Update", "NetworkStatus#"),
 	NETWORK_STATUS_TRANSMISSION_MODE("TransmissionMode", "NetworkStatus#"),
 

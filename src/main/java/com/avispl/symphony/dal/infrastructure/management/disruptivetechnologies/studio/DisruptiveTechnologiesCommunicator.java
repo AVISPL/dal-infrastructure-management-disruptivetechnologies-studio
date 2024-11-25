@@ -11,6 +11,7 @@
 	import java.time.format.DateTimeFormatter;
 	import java.util.ArrayList;
 	import java.util.Arrays;
+	import java.util.Base64;
 	import java.util.Collections;
 	import java.util.Date;
 	import java.util.HashMap;
@@ -30,10 +31,10 @@
 	import org.springframework.http.HttpMethod;
 	import org.springframework.util.CollectionUtils;
 
-	import com.auth0.jwt.JWT;
-	import com.auth0.jwt.algorithms.Algorithm;
 	import com.fasterxml.jackson.databind.JsonNode;
 	import com.fasterxml.jackson.databind.ObjectMapper;
+	import javax.crypto.Mac;
+	import javax.crypto.spec.SecretKeySpec;
 	import javax.security.auth.login.FailedLoginException;
 	import org.openjdk.jol.info.ClassLayout;
 
@@ -541,7 +542,7 @@
 						getDefaultValueForNullData(adapterProperties.getProperty("aggregator.build.date")));
 
 				dynamicStatistics.put(DisruptiveTechnologiesConstant.ADAPTER_RUNNER_SIZE,
-						String.valueOf(ClassLayout.parseInstance(this).toPrintable().length()));
+						String.valueOf(ClassLayout.parseInstance(this).toPrintable().length()/1000));
 
 				long adapterUptime = System.currentTimeMillis() - adapterInitializationTimestamp;
 				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME_MIN, String.valueOf(adapterUptime / (1000 * 60)));
@@ -853,11 +854,11 @@
 		/**
 		 * Generate JWT Token by KeyId, Email and SecretId
 		 *
-		 * @param keyId the key id for authentication
-		 * @param email the email for authentication
+		 * @param keyId  the key id for authentication
+		 * @param email  the email for authentication
 		 * @param secret the secret id for the application
 		 */
-		private String generateJWT(String keyId, String email, String secret) {
+		private String generateJWT(String keyId, String email, String secret) throws Exception {
 			long now = System.currentTimeMillis();
 			Map<String, Object> jwtHeaders = new HashMap<>();
 			Date issuedAt = new Date(now);
@@ -865,15 +866,59 @@
 			jwtHeaders.put("alg", "HS256");
 			jwtHeaders.put("kid", keyId);
 
-			Algorithm algorithm = Algorithm.HMAC256(secret);
+			Map<String, Object> jwtPayload = new HashMap<>();
+			jwtPayload.put("aud", DisruptiveTechnologiesConstant.URI + DisruptiveTechnologiesCommand.GET_TOKEN);
+			jwtPayload.put("iss", email);
+			jwtPayload.put("iat", issuedAt.getTime() / 1000);
+			jwtPayload.put("exp", expiresAt.getTime() / 1000);
 
-			return JWT.create()
-					.withHeader(jwtHeaders)
-					.withIssuedAt(issuedAt)
-					.withExpiresAt(expiresAt)
-					.withAudience(DisruptiveTechnologiesConstant.URI + DisruptiveTechnologiesCommand.GET_TOKEN)
-					.withIssuer(email)
-					.sign(algorithm);
+			String headerBase64 = Base64.getUrlEncoder().withoutPadding().encodeToString(toJson(jwtHeaders).getBytes());
+			String payloadBase64 = Base64.getUrlEncoder().withoutPadding().encodeToString(toJson(jwtPayload).getBytes());
+
+			String signatureBase = headerBase64 + "." + payloadBase64;
+			String signature = generateHmacSHA256(secret, signatureBase);
+
+			return signatureBase + "." + signature;
+		}
+
+		/**
+		 * Generates an HMAC-SHA256 signature for the given message using the provided secret key.
+		 *
+		 * @param secret the secret key used for generating the HMAC (must be a non-null string).
+		 * @param message the message to be signed (must be a non-null string).
+		 * @return the Base64 URL-safe encoded HMAC-SHA256 signature (without padding).
+		 * @throws Exception if the HMAC-SHA256 algorithm is not available or if there is an issue with the key initialization.
+		 */
+		private String generateHmacSHA256(String secret, String message) throws Exception {
+			SecretKeySpec keySpec = new SecretKeySpec(secret.getBytes(), "HmacSHA256");
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(keySpec);
+			byte[] hmacBytes = mac.doFinal(message.getBytes());
+			return Base64.getUrlEncoder().withoutPadding().encodeToString(hmacBytes);
+		}
+
+		/**
+		 * Converts a map of key-value pairs into a JSON string.
+		 * Keys and values in the map are serialized as JSON string properties.
+		 * @param map the map containing key-value pairs to be serialized (keys must be strings).
+		 * @return a JSON-formatted string representation of the map.
+		 */
+		private String toJson(Map<String, Object> map) {
+			StringBuilder json = new StringBuilder("{");
+			for (Map.Entry<String, Object> entry : map.entrySet()) {
+				json.append("\"").append(entry.getKey()).append("\":");
+				if (entry.getValue() instanceof String) {
+					json.append("\"").append(entry.getValue()).append("\"");
+				} else {
+					json.append(entry.getValue());
+				}
+				json.append(",");
+			}
+			if (json.charAt(json.length() - 1) == ',') {
+				json.deleteCharAt(json.length() - 1);
+			}
+			json.append("}");
+			return json.toString();
 		}
 
 
@@ -967,19 +1012,26 @@
 					if (DisruptiveTechnologiesConstant.NONE.equalsIgnoreCase(value) && !isLabelField(item)) {
 						continue;
 					}
-					boolean propertyListed = !historicalProperties.isEmpty() && historicalProperties.stream().anyMatch(name::endsWith);
+					boolean propertyListed = !historicalProperties.isEmpty() && isSupportedHistorical(name, item);
 						switch (item) {
 							case NETWORK_STATUS_SIGNAL_STRENGTH:
 							case NETWORK_STATUS_RSSI:
 							case BATTERY_STATUS_PERCENTAGE:
 							case TEMPERATURE_VALUE:
 							case HUMIDITY_RELATIVE:
-							case HUMIDITY_TEMP:
 							case CO2_PPM:
 								if(propertyListed){
 									dynamicStats.put(name, value);
+								}else {
+									stats.put(name, value);
 								}
-								stats.put(name, value);
+								break;
+							case HUMIDITY_TEMP:
+								if(propertyListed){
+									dynamicStats.put(DisruptiveTechnologiesConstant.TEMPERATURE_NAME, value);
+								} else {
+									stats.put(DisruptiveTechnologiesConstant.TEMPERATURE_NAME, value);
+								}
 								break;
 							case PRESSURE_PASCAL:
 								try {
@@ -995,10 +1047,10 @@
 								}
 								break;
 							case OBJECT_PRESENT_STATE:
-								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "OPEN" : "CLOSE");
+								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "NO_OBJECT_DETECTED" : "OBJECT_DETECTED ");
 								break;
 							case WATER_PRESENT_STATE:
-								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "No Water Detected" : "Water Detected");
+								stats.put(name, DisruptiveTechnologiesConstant.NOT_PRESENT.equals(value) ? "NO_WATER_DETECTED" : "WATER_DETECTED");
 								break;
 							case NETWORK_STATUS_TRANSMISSION_MODE:
 								stats.put(name, "LOW_POWER_STANDARD_MODE".equals(value) ? "Standard power usage" : "");
@@ -1009,7 +1061,6 @@
 										: value;
 								stats.put(name, labelName);
 								break;
-
 							case LABEL_DESCRIPTION:
 								String labelDescription = Objects.equals(value, DisruptiveTechnologiesConstant.NONE)
 										? getDefaultNameOrDescriptionOfSensor(cached.get(DisruptiveTechnologiesConstant.TYPE), DisruptiveTechnologiesConstant.DESCRIPTION)
@@ -1027,6 +1078,19 @@
 			} catch (Exception e) {
 				logger.error("Error while populate Sensor Info", e);
 			}
+		}
+
+		/**
+		 * Verify historical properties
+		 * @param name name of historical properties
+		 * @param item name of value mapping
+		 * @return true or false
+		 */
+		private boolean isSupportedHistorical(String name, AggregatedInformation item) {
+			if(AggregatedInformation.HUMIDITY_TEMP.getName().equals(item.getName())){
+				return historicalProperties.stream().anyMatch(item1 -> item1.equals(DisruptiveTechnologiesConstant.TEMPERATURE_NAME));
+			}
+			return historicalProperties.stream().anyMatch(item1 -> item1.equals(name));
 		}
 
 

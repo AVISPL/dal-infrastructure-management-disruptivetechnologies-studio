@@ -11,6 +11,7 @@
 	import java.time.format.DateTimeFormatter;
 	import java.util.ArrayList;
 	import java.util.Arrays;
+	import java.util.Base64;
 	import java.util.Collections;
 	import java.util.Date;
 	import java.util.HashMap;
@@ -30,10 +31,10 @@
 	import org.springframework.http.HttpMethod;
 	import org.springframework.util.CollectionUtils;
 
-	import com.auth0.jwt.JWT;
-	import com.auth0.jwt.algorithms.Algorithm;
 	import com.fasterxml.jackson.databind.JsonNode;
 	import com.fasterxml.jackson.databind.ObjectMapper;
+	import javax.crypto.Mac;
+	import javax.crypto.spec.SecretKeySpec;
 	import javax.security.auth.login.FailedLoginException;
 	import org.openjdk.jol.info.ClassLayout;
 
@@ -853,11 +854,11 @@
 		/**
 		 * Generate JWT Token by KeyId, Email and SecretId
 		 *
-		 * @param keyId the key id for authentication
-		 * @param email the email for authentication
+		 * @param keyId  the key id for authentication
+		 * @param email  the email for authentication
 		 * @param secret the secret id for the application
 		 */
-		private String generateJWT(String keyId, String email, String secret) {
+		private String generateJWT(String keyId, String email, String secret) throws Exception {
 			long now = System.currentTimeMillis();
 			Map<String, Object> jwtHeaders = new HashMap<>();
 			Date issuedAt = new Date(now);
@@ -865,15 +866,59 @@
 			jwtHeaders.put("alg", "HS256");
 			jwtHeaders.put("kid", keyId);
 
-			Algorithm algorithm = Algorithm.HMAC256(secret);
+			Map<String, Object> jwtPayload = new HashMap<>();
+			jwtPayload.put("aud", DisruptiveTechnologiesConstant.URI + DisruptiveTechnologiesCommand.GET_TOKEN);
+			jwtPayload.put("iss", email);
+			jwtPayload.put("iat", issuedAt.getTime() / 1000);
+			jwtPayload.put("exp", expiresAt.getTime() / 1000);
 
-			return JWT.create()
-					.withHeader(jwtHeaders)
-					.withIssuedAt(issuedAt)
-					.withExpiresAt(expiresAt)
-					.withAudience(DisruptiveTechnologiesConstant.URI + DisruptiveTechnologiesCommand.GET_TOKEN)
-					.withIssuer(email)
-					.sign(algorithm);
+			String headerBase64 = Base64.getUrlEncoder().withoutPadding().encodeToString(toJson(jwtHeaders).getBytes());
+			String payloadBase64 = Base64.getUrlEncoder().withoutPadding().encodeToString(toJson(jwtPayload).getBytes());
+
+			String signatureBase = headerBase64 + "." + payloadBase64;
+			String signature = generateHmacSHA256(secret, signatureBase);
+
+			return signatureBase + "." + signature;
+		}
+
+		/**
+		 * Generates an HMAC-SHA256 signature for the given message using the provided secret key.
+		 *
+		 * @param secret the secret key used for generating the HMAC (must be a non-null string).
+		 * @param message the message to be signed (must be a non-null string).
+		 * @return the Base64 URL-safe encoded HMAC-SHA256 signature (without padding).
+		 * @throws Exception if the HMAC-SHA256 algorithm is not available or if there is an issue with the key initialization.
+		 */
+		private String generateHmacSHA256(String secret, String message) throws Exception {
+			SecretKeySpec keySpec = new SecretKeySpec(secret.getBytes(), "HmacSHA256");
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(keySpec);
+			byte[] hmacBytes = mac.doFinal(message.getBytes());
+			return Base64.getUrlEncoder().withoutPadding().encodeToString(hmacBytes);
+		}
+
+		/**
+		 * Converts a map of key-value pairs into a JSON string.
+		 * Keys and values in the map are serialized as JSON string properties.
+		 * @param map the map containing key-value pairs to be serialized (keys must be strings).
+		 * @return a JSON-formatted string representation of the map.
+		 */
+		private String toJson(Map<String, Object> map) {
+			StringBuilder json = new StringBuilder("{");
+			for (Map.Entry<String, Object> entry : map.entrySet()) {
+				json.append("\"").append(entry.getKey()).append("\":");
+				if (entry.getValue() instanceof String) {
+					json.append("\"").append(entry.getValue()).append("\"");
+				} else {
+					json.append(entry.getValue());
+				}
+				json.append(",");
+			}
+			if (json.charAt(json.length() - 1) == ',') {
+				json.deleteCharAt(json.length() - 1);
+			}
+			json.append("}");
+			return json.toString();
 		}
 
 

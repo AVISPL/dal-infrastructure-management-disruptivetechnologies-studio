@@ -975,7 +975,7 @@
 
 					Map<String, String> dynamicStats = new HashMap<>();
 					Map<String, String> stats = new HashMap<>();
-					Boolean isDeviceOnline = false;
+					boolean isDeviceOnline = false;
 
 					long updateTimeMillis = parseUpdateTime(updateTime);
 					AggregatedDevice aggregatedDevice = new AggregatedDevice();

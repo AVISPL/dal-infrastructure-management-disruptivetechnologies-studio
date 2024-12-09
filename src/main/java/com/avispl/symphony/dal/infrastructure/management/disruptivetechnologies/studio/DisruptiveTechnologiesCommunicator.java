@@ -975,7 +975,6 @@
 
 					Map<String, String> dynamicStats = new HashMap<>();
 					Map<String, String> stats = new HashMap<>();
-					boolean isDeviceOnline = false;
 
 					long updateTimeMillis = parseUpdateTime(updateTime);
 					AggregatedDevice aggregatedDevice = new AggregatedDevice();
@@ -985,7 +984,7 @@
 							: item.getDeviceName());
 
 
-					isDeviceOnline = currentTimestamp - updateTimeMillis <= 60 * 60 * 1000;
+					boolean isDeviceOnline = currentTimestamp - updateTimeMillis <= 60 * 60 * 1000;
 
 					aggregatedDevice.setDeviceOnline(isDeviceOnline);
 
@@ -1043,8 +1042,9 @@
 									String formattedPressure = String.valueOf(pressure);
 									if (propertyListed && isDeviceOnline) {
 										dynamicStats.put(name, formattedPressure);
+									} else {
+										stats.put(name, formattedPressure);
 									}
-									stats.put(name, formattedPressure);
 								} catch (NumberFormatException e) {
 									logger.error("Error parsing pressure value for " + name, e);
 									stats.put(name, DisruptiveTechnologiesConstant.NONE);

@@ -983,9 +983,12 @@
 							getDefaultNameOrDescriptionOfSensor(item.getDeviceModel(), DisruptiveTechnologiesConstant.SENSOR)
 							: item.getDeviceName());
 
-					populateDeviceSensor(item.getProperties(), stats, dynamicStats);
 
-					aggregatedDevice.setDeviceOnline(currentTimestamp - updateTimeMillis <= 60 * 60 * 1000);
+					boolean isDeviceOnline = currentTimestamp - updateTimeMillis <= 60 * 60 * 1000;
+
+					aggregatedDevice.setDeviceOnline(isDeviceOnline);
+
+					populateDeviceSensor(item.getProperties(), stats, dynamicStats, isDeviceOnline);
 
 					formatProperties(stats);
 					aggregatedDevice.setProperties(stats);
@@ -1004,7 +1007,7 @@
 		 * @param stats The map to populate with the extracted sensor information.
 		 * @param dynamicStats The map to populate with the dynamic sensor information.
 		 */
-		private void populateDeviceSensor(Map<String, String> cached, Map<String, String> stats, Map<String, String> dynamicStats){
+		private void populateDeviceSensor(Map<String, String> cached, Map<String, String> stats, Map<String, String> dynamicStats, Boolean isDeviceOnline){
 			try{
 				for (AggregatedInformation item : AggregatedInformation.values()) {
 						String name = item.getGroup() + item.getName();
@@ -1020,14 +1023,14 @@
 							case TEMPERATURE_VALUE:
 							case HUMIDITY_RELATIVE:
 							case CO2_PPM:
-								if(propertyListed){
+								if(propertyListed && isDeviceOnline){
 									dynamicStats.put(name, value);
 								}else {
 									stats.put(name, value);
 								}
 								break;
 							case HUMIDITY_TEMP:
-								if(propertyListed){
+								if(propertyListed && isDeviceOnline){
 									dynamicStats.put(DisruptiveTechnologiesConstant.TEMPERATURE_NAME, value);
 								} else {
 									stats.put(DisruptiveTechnologiesConstant.TEMPERATURE_NAME, value);
@@ -1037,10 +1040,11 @@
 								try {
 									int pressure = (int) Double.parseDouble(value) / 100;
 									String formattedPressure = String.valueOf(pressure);
-									if (propertyListed) {
+									if (propertyListed && isDeviceOnline) {
 										dynamicStats.put(name, formattedPressure);
+									} else {
+										stats.put(name, formattedPressure);
 									}
-									stats.put(name, formattedPressure);
 								} catch (NumberFormatException e) {
 									logger.error("Error parsing pressure value for " + name, e);
 									stats.put(name, DisruptiveTechnologiesConstant.NONE);

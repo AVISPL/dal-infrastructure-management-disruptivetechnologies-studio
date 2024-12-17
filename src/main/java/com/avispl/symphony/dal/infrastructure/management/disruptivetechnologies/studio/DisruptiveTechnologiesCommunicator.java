@@ -187,7 +187,7 @@
 		private final ReentrantLock reentrantLock = new ReentrantLock();
 
 		/**
-		 * Id of project
+		 * ID of project
 		 */
 		private String projectID;
 

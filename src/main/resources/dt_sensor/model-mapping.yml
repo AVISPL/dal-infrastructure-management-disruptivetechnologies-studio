@@ -1,0 +1,71 @@
+models:
+  - model:
+      name: Generic
+      vendor: DisruptiveTechnologies
+      filter: true
+      mapping:
+        deviceId: at("/name").asText().split("/")[3]
+        deviceName: at("/labels/name")
+        deviceModel: at("/type")
+      properties:
+        Type: at("/type")
+        ProductNumber: at("/productNumber")
+        LabelName: at("/labels/name")
+        LabelDescription: at("/labels/description")
+        ConnectionStatus: at("/connectionStatus")
+        NetworkStatus#SignalStrength(%): at("/reported/networkStatus/signalStrength")
+        NetworkStatus#RSSI(dBm): at("/reported/networkStatus/rssi")
+        NetworkStatus#Update: at("/reported/networkStatus/updateTime")
+        NetworkStatus#TransmissionMode: at("/reported/networkStatus/transmissionMode")
+
+        BatteryStatus#Level(%): at("/reported/batteryStatus/percentage")
+        BatteryStatus#Update: at("/reported/batteryStatus/updateTime")
+
+        # CO2
+        SensorData#CO2(ppm): at("/reported/co2/ppm")
+        SensorData#C02Update: at("/reported/co2/updateTime")
+
+        SensorData#Pressure(hPa): at("/reported/pressure/pascal")
+        SensorData#PressureUpdate: at("/reported/pressure/updateTime")
+
+        # DeskOccupancy
+        SensorData#DeskOccupancyState: at("/reported/deskOccupancy/state")
+        SensorData#DeskOccupancyUpdate: at("/reported/deskOccupancy/updateTime")
+        SensorData#DeskOccupancyRemarks: at("/reported/deskOccupancy/remarks").toString()
+
+        # Door and Window
+        SensorData#ContactState: at("/reported/contact/state")
+        SensorData#ContactUpdate: at("/reported/contact/updateTime")
+
+        # Humidity
+        SensorData#HumidityTemperature(C): at("/reported/humidity/temperature")
+        SensorData#Humidity(%): at("/reported/humidity/relativeHumidity")
+        SensorData#HumidityUpdate: at("/reported/humidity/updateTime")
+
+        # Motion
+        SensorData#MotionState: at("/reported/motion/state")
+        SensorData#MotionUpdate: at("/reported/motion/updateTime")
+
+        # Proximity Counter
+        SensorData#ObjectPresentCount: at("/reported/objectPresentCount/total")
+        SensorData#ObjectPresentCountUpdate: at("/reported/objectPresentCount/updateTime")
+
+        # Proximity
+        SensorData#ObjectPresentState: at("/reported/objectPresent/state")
+        SensorData#ObjectPresentUpdate: at("/reported/objectPresent/updateTime")
+
+        # Temperature
+        SensorData#Temperature(C): at("/reported/temperature/value")
+        SensorData#TemperatureUpdate: at("/reported/temperature/updateTime")
+
+        # Touch Counter
+        SensorData#TouchCount: at("/reported/touchCount/total")
+        SensorData#TouchCountUpdate: at("/reported/touchCount/updateTime")
+
+        # Touch
+        SensorData#TouchUpdate: at("/reported/touch")?.get("updateTime")
+
+        # Water detector
+        SensorData#WaterDetectionState: at("/reported/waterPresent/state")
+        SensorData#WaterDetectionUpdate: at("/reported/waterPresent/updateTime")
+

@@ -8,6 +8,7 @@ on:
 jobs:
   prep:
     runs-on: ubuntu-latest
+    if: false #muting this workflow TODO: fix so that jar-with-dependencies is used and renames, as in release workflow
     outputs:
       rev: ${{ steps.shortrev.outputs.rev }}
       ver: ${{ steps.pversion.outputs.ver }}

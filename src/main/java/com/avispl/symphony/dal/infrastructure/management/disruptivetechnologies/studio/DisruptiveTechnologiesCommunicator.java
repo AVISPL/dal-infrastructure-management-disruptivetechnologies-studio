@@ -241,7 +241,6 @@
 
 		class DisruptiveTechnologiesCloudDataLoader implements Runnable {
 			private volatile boolean inProgress;
-			private volatile boolean dataFetchCompleted = false;
 
 			public DisruptiveTechnologiesCloudDataLoader() {
 				inProgress = true;
@@ -251,7 +250,6 @@
 			public void run() {
 				loop:
 				while (inProgress) {
-					long startCycle = System.currentTimeMillis();
 					try {
 						try {
 							TimeUnit.MILLISECONDS.sleep(500);
@@ -272,12 +270,6 @@
 							logger.debug("Fetching other than aggregated device list");
 						}
 
-						long currentTimestamp = System.currentTimeMillis();
-						if (!dataFetchCompleted && nextDevicesCollectionIterationTimestamp <= currentTimestamp) {
-							populateDeviceDetails();
-							dataFetchCompleted = true;
-						}
-
 						while (nextDevicesCollectionIterationTimestamp > System.currentTimeMillis()) {
 							try {
 								TimeUnit.MILLISECONDS.sleep(1000);
@@ -289,15 +281,27 @@
 						if (!inProgress) {
 							break loop;
 						}
-						if (dataFetchCompleted) {
-							nextDevicesCollectionIterationTimestamp = System.currentTimeMillis() + 30000;
-							lastMonitoringCycleDuration = (System.currentTimeMillis() - startCycle) / 1000;
-							logger.debug("Finished collecting devices statistics cycle at " + new Date() + ", total duration: " + lastMonitoringCycleDuration);
-							dataFetchCompleted = false;
+
+						long startCycle = System.currentTimeMillis();
+						try {
+							if (logger.isDebugEnabled()) {
+								logger.debug("Fetching devices list");
+							}
+							populateDeviceDetails();
+						} catch (Exception e) {
+							logger.error("Error occurred during device list retrieval: " + e.getMessage(), e);
 						}
 
+						try {
+							nextDevicesCollectionIterationTimestamp = System.currentTimeMillis() + (getMonitoringRate() * 60000L);
+						} catch (NoSuchMethodError noSuchMethodError) {
+							nextDevicesCollectionIterationTimestamp = System.currentTimeMillis() + 60000L;
+							logger.warn("Unsupported feature: getMonitoringRate isn't available on current Cloud Connector version.", noSuchMethodError);
+						}
+						lastMonitoringCycleDuration =  Math.max((System.currentTimeMillis() - startCycle) / 1000, 1L);
+
 						if (logger.isDebugEnabled()) {
-							logger.debug("Finished collecting devices statistics cycle at " + new Date());
+							logger.debug("Finished collecting devices statistics cycle at " + new Date() + ", total duration: " + lastMonitoringCycleDuration);
 						}
 					} catch (Exception e) {
 						logger.error("Unexpected error occurred during main device collection cycle", e);
@@ -547,6 +551,11 @@
 				long adapterUptime = System.currentTimeMillis() - adapterInitializationTimestamp;
 				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME_MIN, String.valueOf(adapterUptime / (1000 * 60)));
 				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME, normalizeUptime(adapterUptime / 1000));
+				try {
+					stats.put(DisruptiveTechnologiesConstant.SYSTEM_MONITORING_CYCLE, String.valueOf(getMonitoringRate()));
+				} catch (NoSuchMethodError noSuchMethodError) {
+					logger.warn("Unsupported feature: getMonitoringRate isn't available on current Cloud Connector version.", noSuchMethodError);
+				}
 			} catch (Exception e) {
 				logger.error("Failed to populate metadata information with projectId " + projectID, e);
 			}
@@ -1219,12 +1228,12 @@
 
 		/**
 		 * Uptime is received in seconds, need to normalize it and make it human-readable, like
-		 * 1 day(s) 5 hour(s) 12 minute(s) 55 minute(s)
+		 * 1 day 5 hour 12 minute 55 minute
 		 * Incoming parameter is may have a decimal point, so in order to safely process this - it's rounded first.
 		 * We don't need to add a segment of time if it's 0.
 		 *
 		 * @param uptimeSeconds value in seconds
-		 * @return string value of format 'x day(s) x hour(s) x minute(s) x minute(s)'
+		 * @return string value of format 'x d x hr x min x sec'
 		 */
 		private String normalizeUptime(long uptimeSeconds) {
 			StringBuilder normalizedUptime = new StringBuilder();
@@ -1235,16 +1244,16 @@
 			long days = uptimeSeconds / 86400;
 
 			if (days > 0) {
-				normalizedUptime.append(days).append(" day(s) ");
+				normalizedUptime.append(days).append(" d ");
 			}
 			if (hours > 0) {
-				normalizedUptime.append(hours).append(" hour(s) ");
+				normalizedUptime.append(hours).append(" hr ");
 			}
 			if (minutes > 0) {
-				normalizedUptime.append(minutes).append(" minute(s) ");
+				normalizedUptime.append(minutes).append(" min ");
 			}
-			if (seconds > 0) {
-				normalizedUptime.append(seconds).append(" second(s)");
+			if (seconds > 0 || normalizedUptime.length() == 0) {
+				normalizedUptime.append(seconds).append(" sec");
 			}
 			return normalizedUptime.toString().trim();
 		}

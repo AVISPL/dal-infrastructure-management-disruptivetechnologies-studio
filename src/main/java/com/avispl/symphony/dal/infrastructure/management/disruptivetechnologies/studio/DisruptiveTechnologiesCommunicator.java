@@ -289,7 +289,7 @@
 							}
 							populateDeviceDetails();
 						} catch (Exception e) {
-							logger.error("Error occurred during device list retrieval: " + e.getMessage(), e);
+							logger.error("Error occurred during device list retrieval.", e);
 						}
 
 						try {

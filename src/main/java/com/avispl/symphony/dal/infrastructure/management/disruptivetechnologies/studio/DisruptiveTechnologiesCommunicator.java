@@ -36,7 +36,6 @@
 	import javax.crypto.Mac;
 	import javax.crypto.spec.SecretKeySpec;
 	import javax.security.auth.login.FailedLoginException;
-	import org.openjdk.jol.info.ClassLayout;
 
 	import com.avispl.symphony.api.dal.control.Controller;
 	import com.avispl.symphony.api.dal.dto.control.ControllableProperty;
@@ -544,9 +543,6 @@
 						getDefaultValueForNullData(adapterProperties.getProperty("aggregator.version")));
 				stats.put(DisruptiveTechnologiesConstant.ADAPTER_BUILD_DATE,
 						getDefaultValueForNullData(adapterProperties.getProperty("aggregator.build.date")));
-
-				dynamicStatistics.put(DisruptiveTechnologiesConstant.ADAPTER_RUNNER_SIZE,
-						String.valueOf(ClassLayout.parseInstance(this).toPrintable().length()/1000));
 
 				long adapterUptime = System.currentTimeMillis() - adapterInitializationTimestamp;
 				stats.put(DisruptiveTechnologiesConstant.ADAPTER_UPTIME_MIN, String.valueOf(adapterUptime / (1000 * 60)));

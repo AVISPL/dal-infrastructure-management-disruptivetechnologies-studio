@@ -568,9 +568,9 @@
 				String projectId = this.getProjectId();
 				if(Objects.equals(projectId, "")) {
 					String group = DisruptiveTechnologiesConstant.GENERIC + DisruptiveTechnologiesConstant.HASH;
-					stats.put(group + "ProjectId", "Unknown");
+					stats.put(group + "ProjectID", "Unknown");
 					stats.put(group + "ProjectName", "Unknown");
-					stats.put(group + "OrganizationId", "Unknown");
+					stats.put(group + "OrganizationID", "Unknown");
 					return;
 				}
 				JsonNode response = this.doGet(String.format(DisruptiveTechnologiesCommand.GET_SINGLE_PROJECT, this.getProjectId()), JsonNode.class);
@@ -582,7 +582,7 @@
 						switch (property) {
 							case ORGANIZATION:
 								String[] OrganizationId = response.get(property.getName()).asText().split("/");
-								stats.put(GroupName + "OrganizationId", OrganizationId[1]);
+								stats.put(GroupName + "OrganizationID", OrganizationId[1]);
 								break;
 							case ORGANIZATION_DISPLAY_NAME:
 								stats.put(GroupName + "OrganizationName", getDefaultValueForNullData(response.get(property.getName()).asText()));
@@ -609,7 +609,7 @@
 							case PROJECT_ID:
 								String[] id = response.get(property.getName()).asText().split("/");
 								projectID = id[1];
-								stats.put(GroupName + "ProjectId", id[1]);
+								stats.put(GroupName + "ProjectID", id[1]);
 								break;
 							default:
 								if (DisruptiveTechnologiesConstant.EMPTY.equals(group)) {
@@ -622,9 +622,9 @@
 			} catch (Exception e) {
 				if (e.getMessage().contains("403")) {
 					String group = DisruptiveTechnologiesConstant.GENERIC + DisruptiveTechnologiesConstant.HASH;
-					stats.put(group + "ProjectId", projectId);
+					stats.put(group + "ProjectID", projectId);
 					stats.put(group + "ProjectName", "None");
-					stats.put(group + "OrganizationId", "None");
+					stats.put(group + "OrganizationID", "None");
 					logger.error("403 Forbidden: Invalid projectId or insufficient permissions for projectId " + projectID, e);
 				} else {
 					throw new ResourceNotReachableException("Unable to retrieve project information.", e);

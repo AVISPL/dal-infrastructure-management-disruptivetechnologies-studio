@@ -12,7 +12,7 @@ package com.avispl.symphony.dal.infrastructure.management.disruptivetechnologies
  * @since 1.0.0
  */
 public enum CloudConnector {
-	ID("Id", "name"),
+	ID("ID", "name"),
 	TYPE("Type", "type"),
 	PRODUCT_NUMBER("ProductNumber", "productNumber"),
 	LABEL_NAME("LabelName", "name"),
